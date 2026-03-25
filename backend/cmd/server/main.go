@@ -10,19 +10,19 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func main(){
+func main() {
 	//Loading environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env found, relying on system environment variables instead")
 	}
 
 	//Connect to PostgreSQL database
-	if err := config.connectPostgres(); err != nil{
+	if err := config.ConnectPostgres(); err != nil {
 		log.Fatalf("Could not initialize Postgres: %v", err)
 	}
 
 	//Connect to MongoDB database
-	if err := config.ConnectMongo(); err != nil{
+	if err := config.ConnectMongo(); err != nil {
 		log.Fatalf("Mongo initializaiton failed: %v", err)
 	}
 
@@ -30,17 +30,17 @@ func main(){
 	router := gin.Default()
 
 	//Health check for API
-	router.GET("/ping", func(c *gin.Context){
+	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"message": "Medieval Store API is up and running"
+			"message": "Medieval Store API is up and running",
 		})
 	})
 
 	//Start server
 	port := os.Getenv("PORT")
-	
-	//If cannot get port 
-	if port == ""{
+
+	//If cannot get port
+	if port == "" {
 		port = "8080"
 	}
 
