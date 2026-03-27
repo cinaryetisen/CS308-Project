@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"medieval-store/config"
+	"medieval-store/routes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -27,7 +28,7 @@ func main() {
 	}
 
 	//Set up router
-	router := gin.Default()
+	router := routes.SetupRouter()
 
 	//Health check for API
 	router.GET("/ping", func(c *gin.Context) {
