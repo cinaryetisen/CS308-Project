@@ -5,12 +5,20 @@ import (
 	"net/http"
 	"time"
 
-	"cs308/config"
-	"cs308/models"
+	"medieval-store/config" // Notice: The models import is gone!
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// Define the Product structure directly here so Go knows what to expect
+type Product struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name        string             `bson:"name" json:"name"`
+	Price       float64            `bson:"price" json:"price"`
+	Description string             `bson:"description" json:"description"`
+}
 
 func GetProducts(c *gin.Context) {
 	collection := config.GetCollection("products")
@@ -25,7 +33,8 @@ func GetProducts(c *gin.Context) {
 	}
 	defer cursor.Close(ctx)
 
-	var products []models.Product
+	// Use the locally defined Product struct
+	var products []Product
 	if err = cursor.All(ctx, &products); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode products"})
 		return

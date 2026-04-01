@@ -1,63 +1,34 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
-	// Triggering Jira sync
 
-	"medieval-store/config"
-	"medieval-store/controllers" // Updated from cs308 to match your project
-	"medieval-store/routes"
-
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 1. Loading environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env found, relying on system environment variables instead")
+	// 1. Load the .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	}
 
-	// 2. Connect to PostgreSQL database
-	if err := config.ConnectPostgres(); err != nil {
-		log.Fatalf("Could not initialize Postgres: %v", err)
-	}
-
-	// 3. Connect to MongoDB database
-	if err := config.ConnectMongo(); err != nil {
-		log.Fatalf("Mongo initializaiton failed: %v", err)
-	}
-
-	// 4. Set up router
-	router := routes.SetupRouter()
-
-	// 5. CORS setup so your React frontend is allowed to talk to this backend
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-		c.Next()
-	})
-
-	// 6. Health check for API
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Medieval Store API is up and running",
-		})
-	})
-
-
-	// 8. Start server
+	// 2. Access the variables using os.Getenv
+	postgresDSN := os.Getenv("POSTGRES_DSN")
+	mongoURI := os.Getenv("MONGO_URI")
 	port := os.Getenv("PORT")
+
+	// Tell Go it's okay that we aren't using these just yet
+	_ = postgresDSN
+	_ = mongoURI
+
+	// If PORT is not set in .env, default to 8080
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Printf("Starting server on port %s...", port)
-	router.Run(":" + port)
+	fmt.Printf("Server will run on port: %s\n", port)
+	// fmt.Println("Postgres DSN:", postgresDSN) // Do not print this in production!
 }
