@@ -3,22 +3,19 @@ package controllers
 import (
 	"context"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
-	"medieval-store/config" // Notice: The models import is gone!
+	"medieval-store/config"
+	"medieval-store/products"
 
+	// -> Change "models" to "products" if your folder is named products!
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	// Note: We removed the "primitive" import here because we no longer
+	// define the ID in this file. It is handled entirely by your master struct!
 )
-
-// Define the Product structure directly here so Go knows what to expect
-type Product struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name        string             `bson:"name" json:"name"`
-	Price       float64            `bson:"price" json:"price"`
-	Description string             `bson:"description" json:"description"`
-}
 
 func GetProducts(c *gin.Context) {
 	collection := config.GetCollection("products")
@@ -33,13 +30,33 @@ func GetProducts(c *gin.Context) {
 	}
 	defer cursor.Close(ctx)
 
-	// Use the locally defined Product struct
-	var products []Product
+	// Use the central Product struct from your other file!
+	// Make sure the prefix matches your package name (models.Product or products.Product)
+	var products []products.Product
+
 	if err = cursor.All(ctx, &products); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode products"})
 		return
 	}
 
-	// Send the data to the frontend!
+	// ==========================================
+	// THE SORTING ALGORITHM
+	// ==========================================
+	sortParam := strings.ToLower(c.Query("sort"))
+
+	if sortParam == "asc" {
+		// Cheapest to Most Expensive
+		sort.Slice(products, func(i, j int) bool {
+			return products[i].Price < products[j].Price
+		})
+	} else if sortParam == "desc" {
+		// Most Expensive to Cheapest
+		sort.Slice(products, func(i, j int) bool {
+			return products[i].Price > products[j].Price
+		})
+	}
+	// ==========================================
+
+	// Send the full, sorted data to the frontend!
 	c.JSON(http.StatusOK, products)
 }
