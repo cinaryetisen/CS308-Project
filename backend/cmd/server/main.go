@@ -1,50 +1,34 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
-	"medieval-store/config"
-	"medieval-store/routes"
-
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	//Loading environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env found, relying on system environment variables instead")
+	// 1. Load the .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	}
 
-	//Connect to PostgreSQL database
-	if err := config.ConnectPostgres(); err != nil {
-		log.Fatalf("Could not initialize Postgres: %v", err)
-	}
-
-	//Connect to MongoDB database
-	if err := config.ConnectMongo(); err != nil {
-		log.Fatalf("Mongo initializaiton failed: %v", err)
-	}
-
-	//Set up router
-	router := routes.SetupRouter()
-
-	//Health check for API
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Medieval Store API is up and running",
-		})
-	})
-
-	//Start server
+	// 2. Access the variables using os.Getenv
+	postgresDSN := os.Getenv("POSTGRES_DSN")
+	mongoURI := os.Getenv("MONGO_URI")
 	port := os.Getenv("PORT")
 
-	//If cannot get port
+	// Tell Go it's okay that we aren't using these just yet
+	_ = postgresDSN
+	_ = mongoURI
+
+	// If PORT is not set in .env, default to 8080
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Printf("Starting server on port %s...", port)
-	router.Run(":" + port)
+	fmt.Printf("Server will run on port: %s\n", port)
+	// fmt.Println("Postgres DSN:", postgresDSN) // Do not print this in production!
 }

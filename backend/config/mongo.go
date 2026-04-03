@@ -38,3 +38,9 @@ func ConnectMongo() error {
 	log.Println("Successfully connected to MongoDB!")
 	return nil
 }
+
+// NEW FUNCTION: This is what controllers.GetProducts needs!
+func GetCollection(collectionName string) *mongo.Collection {
+	// IMPORTANT: Change "medieval_store" to whatever you named your actual database in Atlas
+	return MongoClient.Database("medieval_store").Collection(collectionName)
+}

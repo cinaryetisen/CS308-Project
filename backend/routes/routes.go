@@ -13,6 +13,8 @@ func SetupRouter() *gin.Engine {
 
 	api.POST("/signup", controllers.Signup)
 	api.POST("/login", controllers.Login)
+	api.GET("/products", controllers.GetProducts)
+
 
 	return router
 }
