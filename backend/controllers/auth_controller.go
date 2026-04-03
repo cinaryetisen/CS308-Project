@@ -11,15 +11,15 @@ import (
 
 type SignupInput struct {
 	Name        string `json:"name" binding:"required"`
-	Email       string `json:"email" binding:"required, email"`
+	Email       string `json:"email" binding:"required,email"`
 	TaxID       string `json:"tax_id"`
 	HomeAddress string `json:"home_address"`
-	Password    string `json:"password" binding:"required, min=6"`
+	Password    string `json:"password" binding:"required,min=6"`
 }
 
 type LoginInput struct {
-	Email    string `json:"email" binding:"required, email"`
-	Password string `json:"password" binding:"required, min=6"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
 }
 
 func Signup(c *gin.Context) {
