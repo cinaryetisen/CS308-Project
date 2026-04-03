@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -12,14 +11,53 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetProducts(c *gin.Context) {
-	collection := config.GetCollection("products")
+	collection := config.MongoClient.Database("medieval_store").Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	// 1. Get query parameters from the URL
+	searchQuery := c.Query("search")
+	sortParam := strings.ToLower(c.Query("sort"))
+
+	// 2. Build the MongoDB Filter (Search by Name OR Description)
+	filter := bson.M{}
+
+	if searchQuery != "" {
+		regex := primitive.Regex{Pattern: searchQuery, Options: "i"}
+
+		filter = bson.M{
+			"$or": []bson.M{
+				{"name": bson.M{"$regex": regex}},
+				{"description": bson.M{"$regex": regex}},
+			},
+		}
+	}
+
+	// 3. Build the MongoDB Sort Options
+	findOptions := options.Find()
+
+	switch sortParam {
+	case "price_asc":
+		// Cheapest to Most Expensive
+		findOptions.SetSort(bson.D{{Key: "price", Value: 1}})
+	case "price_desc":
+		// Most Expensive to Cheapest
+		findOptions.SetSort(bson.D{{Key: "price", Value: -1}})
+	case "popular":
+		// Highest Review Count first
+		findOptions.SetSort(bson.D{{Key: "review_count", Value: -1}})
+	default:
+		// Default sorting (e.g., newest items first)
+		findOptions.SetSort(bson.D{{Key: "created_at", Value: -1}})
+	}
+
+	// 4. Execute the query WITH the filter and sort options
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
@@ -27,25 +65,16 @@ func GetProducts(c *gin.Context) {
 	defer cursor.Close(ctx)
 
 	var products []models.Product
-
 	if err = cursor.All(ctx, &products); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode products"})
 		return
 	}
 
-	// Sorting algm. for the prices
-	sortParam := strings.ToLower(c.Query("sort"))
-
-	if sortParam == "asc" {
-		// Cheapest to Expensive
-		sort.Slice(products, func(i, j int) bool {
-			return products[i].Price < products[j].Price
-		})
-	} else if sortParam == "desc" {
-		//Expensive to Cheapest
-		sort.Slice(products, func(i, j int) bool {
-			return products[i].Price > products[j].Price
-		})
+	// 5. Ensure we return an empty array instead of 'null' if nothing matches
+	if products == nil {
+		products = []models.Product{}
 	}
+
+	// Send the filtered and sorted data to the frontend
 	c.JSON(http.StatusOK, products)
 }
