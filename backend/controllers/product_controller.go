@@ -8,13 +8,10 @@ import (
 	"time"
 
 	"medieval-store/config"
-	"medieval-store/products"
+	"medieval-store/models"
 
-	// -> Change "models" to "products" if your folder is named products!
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	// Note: We removed the "primitive" import here because we no longer
-	// define the ID in this file. It is handled entirely by your master struct!
 )
 
 func GetProducts(c *gin.Context) {
@@ -32,7 +29,7 @@ func GetProducts(c *gin.Context) {
 
 	// Use the central Product struct from your other file!
 	// Make sure the prefix matches your package name (models.Product or products.Product)
-	var products []products.Product
+	var products []models.Product
 
 	if err = cursor.All(ctx, &products); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode products"})
