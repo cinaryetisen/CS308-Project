@@ -37,12 +37,12 @@ func GetProducts(c *gin.Context) {
 	sortParam := strings.ToLower(c.Query("sort"))
 
 	if sortParam == "asc" {
-		// Cheapest to Most Expensive
+		// Cheapest to Expensive
 		sort.Slice(products, func(i, j int) bool {
 			return products[i].Price < products[j].Price
 		})
 	} else if sortParam == "desc" {
-		// Most Expensive to Cheapest
+		//Expensive to Cheapest
 		sort.Slice(products, func(i, j int) bool {
 			return products[i].Price > products[j].Price
 		})
