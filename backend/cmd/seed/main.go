@@ -426,7 +426,6 @@ func main() {
 		},
 	}
 
-	// 5. Insert into MongoDB
 	result, err := collection.InsertMany(ctx, mockProducts)
 	if err != nil {
 		log.Fatalf("Failed to insert mock data: %v", err)
