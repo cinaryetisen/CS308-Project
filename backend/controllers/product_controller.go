@@ -12,8 +12,47 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// Function to get details of a specific product
+func GetProduct(c *gin.Context) {
+	//Get product ID from the URL
+	idParam := c.Param("id")
+
+	//Convert string ID into MongoDB ObjectID
+	objectID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"errro": "Invalid product ID format"})
+		return
+	}
+
+	//Connect to MongoDB collection
+	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	//Query database for specific ID
+	var product models.Product
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&product)
+
+	//Handle errors
+	if err != nil {
+		//If MongoDB could not find the queried document
+		if err == mongo.ErrNoDocuments {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			return
+		}
+
+		//If something else went wrong
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product"})
+		return
+	}
+
+	//Return product to frontend
+	c.JSON(http.StatusOK, product)
+}
 
 func GetProducts(c *gin.Context) {
 	collection := config.MongoClient.Database("medieval_store").Collection("products")
