@@ -6,6 +6,9 @@ export default function Main() {
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    // NEW: State to keep track of the selected sorting option
+    const [sortOption, setSortOption] = useState("default");
 
     // Fetch products from backend
     useEffect(() => {
@@ -13,7 +16,6 @@ export default function Main() {
             try {
                 const response = await fetch(`${API_URL}/api/products`);
                 const data = await response.json();
-
                 setProducts(data);
             } catch (error) {
                 console.error("Error fetching products:", error);
@@ -23,7 +25,17 @@ export default function Main() {
         };
 
         fetchProducts();
-    }, []);
+    }, [API_URL]);
+
+    // NEW: Logic to sort the products before we display them
+    // We copy the array using [...products] so we don't mutate the original data
+    const sortedProducts = [...products].sort((a, b) => {
+        if (sortOption === "price-asc") return a.price - b.price;
+        if (sortOption === "price-desc") return b.price - a.price;
+        if (sortOption === "rating-desc") return b.rating - a.rating;
+        if (sortOption === "name-asc") return a.name.localeCompare(b.name);
+        return 0; // "default" does nothing
+    });
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -31,11 +43,9 @@ export default function Main() {
             {/* Header */}
             <header className="w-full bg-white shadow-md">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-
                     <h1 className="text-2xl font-bold text-gray-800">
                         MyStore
                     </h1>
-
                     <nav className="flex items-center space-x-6">
                         <Link to="/login" className="text-gray-700 hover:text-blue-600 transition">
                             Login
@@ -44,24 +54,43 @@ export default function Main() {
                             Sign Up
                         </Link>
                     </nav>
-
                 </div>
             </header>
 
             {/* Main Content */}
             <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
 
-                <h2 className="text-4xl font-bold mb-10 text-center">
-                    Our Products
-                </h2>
+                {/* Header & Sort Controls Container */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-10">
+                    <h2 className="text-4xl font-bold text-center md:text-left mb-4 md:mb-0">
+                        Our Products
+                    </h2>
+
+                    {/* NEW: Sorting Dropdown Menu */}
+                    <div className="flex items-center space-x-2">
+                        <label htmlFor="sort" className="text-gray-700 font-medium">Sort by:</label>
+                        <select 
+                            id="sort" 
+                            value={sortOption} 
+                            onChange={(e) => setSortOption(e.target.value)}
+                            className="p-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="default">Featured</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="rating-desc">Highest Rated</option>
+                            <option value="name-asc">Name: A to Z</option>
+                        </select>
+                    </div>
+                </div>
 
                 {/* Loading */}
                 {loading ? (
                     <p className="text-center text-gray-600">Loading products...</p>
                 ) : (
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-                        {products.map((product) => (
+                        {/* Notice we are mapping over sortedProducts now, not products */}
+                        {sortedProducts.map((product) => (
                             <div
                                 key={product.id}
                                 className="bg-white rounded-2xl shadow-md p-6 flex flex-col hover:shadow-xl transition duration-300"
@@ -83,10 +112,10 @@ export default function Main() {
                                 {/* Rating */}
                                 <div className="flex items-center mb-2">
                                     <span className="text-yellow-500 mr-2">
-                                        {"★".repeat(Math.floor(product.rating))}
+                                        {"★".repeat(Math.floor(product.rating || 0))}
                                     </span>
                                     <span className="text-gray-600 text-sm">
-                                        {product.rating} ({product.review_count})
+                                        {product.rating} ({product.review_count || 0})
                                     </span>
                                 </div>
 
@@ -117,12 +146,9 @@ export default function Main() {
                                 </button>
                             </div>
                         ))}
-
                     </div>
                 )}
-
             </main>
-
         </div>
     );
 }
