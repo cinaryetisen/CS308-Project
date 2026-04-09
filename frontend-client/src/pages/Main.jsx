@@ -26,6 +26,35 @@ export default function Main() {
         fetchProducts();
     }, [API_URL]);
 
+    const addToCart = (product) => {
+        // Read the existing cart from localStorage
+        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+        
+        // Check if the product is already in the cart
+        const existingItemIndex = cart.findIndex((item) => item.id === product.id);
+
+        if (existingItemIndex >= 0) {
+            // Item exists: increase quantity, but don't exceed available stock
+            const currentQty = cart[existingItemIndex].quantity;
+            cart[existingItemIndex].quantity = Math.min(currentQty + 1, product.quantity);
+        } else {
+            // Item is new: add it to the cart
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image_url: product.image_url,
+                stock: product.quantity, // Save the DB quantity as 'stock' for the cart to use
+                quantity: 1 // Initial cart quantity
+            });
+        }
+
+        // Save the updated cart back to localStorage
+        localStorage.setItem("cart", JSON.stringify(cart));
+        
+        // Simple feedback for the user
+        alert(`${product.name} added to cart!`); 
+    };
 
     const sortedProducts = [...products].sort((a, b) => {
         if (sortOption === "price-asc") return a.price - b.price;
@@ -67,7 +96,7 @@ export default function Main() {
                         Our Products
                     </h2>
 
-                    {/* NEW: Sorting Dropdown Menu */}
+                    {/* Sorting Dropdown Menu */}
                     <div className="flex items-center space-x-2">
                         <label htmlFor="sort" className="text-gray-700 font-medium">Sort by:</label>
                         <select 
@@ -90,7 +119,6 @@ export default function Main() {
                     <p className="text-center text-gray-600">Loading products...</p>
                 ) : (
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {/* Notice we are mapping over sortedProducts now, not products */}
                         {sortedProducts.map((product) => (
                             <div
                                 key={product.id}
@@ -136,6 +164,7 @@ export default function Main() {
 
                                 {/* Button */}
                                 <button
+                                    onClick={() => addToCart(product)} 
                                     disabled={product.quantity === 0}
                                     className={`mt-auto px-4 py-2 rounded-lg transition ${
                                         product.quantity === 0
