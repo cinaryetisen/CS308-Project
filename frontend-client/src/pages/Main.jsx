@@ -7,7 +7,6 @@ export default function Main() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    // NEW: State to keep track of the selected sorting option
     const [sortOption, setSortOption] = useState("default");
 
     // Fetch products from backend
@@ -27,8 +26,7 @@ export default function Main() {
         fetchProducts();
     }, [API_URL]);
 
-    // NEW: Logic to sort the products before we display them
-    // We copy the array using [...products] so we don't mutate the original data
+
     const sortedProducts = [...products].sort((a, b) => {
         if (sortOption === "price-asc") return a.price - b.price;
         if (sortOption === "price-desc") return b.price - a.price;
@@ -52,6 +50,9 @@ export default function Main() {
                         </Link>
                         <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">
                             Sign Up
+                        </Link>
+                        <Link to="/shoppingcart" className="text-gray-700 hover:text-blue-600 transition">
+                            Shopping Cart
                         </Link>
                     </nav>
                 </div>
