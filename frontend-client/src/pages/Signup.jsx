@@ -88,7 +88,8 @@ export default function Signup() {
 
             {/* Email */}
             <input
-                type="email"
+                type="text"
+                inputMode="email"
                 name="email"
                 placeholder="Email Address"
                 value={formData.email}
