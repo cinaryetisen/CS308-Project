@@ -101,7 +101,6 @@ export default function Login() {
               Email Address
             </label>
             <input
-              type="email"
               name="email"
               placeholder="Enter your email"
               value={formData.email}
