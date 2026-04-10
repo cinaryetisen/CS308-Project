@@ -2,6 +2,7 @@ package routes
 
 import (
 	"medieval-store/controllers"
+	"medieval-store/security"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,14 @@ func SetupRouter() *gin.Engine {
 	api.POST("/login", controllers.Login)
 	api.GET("/products", controllers.GetProducts)
 	api.GET("/products/:id", controllers.GetProduct)
+
+	protected := router.Group("/api")
+	protected.Use(security.AuthMiddleware())
+	protected.GET("/cart", controllers.GetCart)
+	protected.DELETE("/cart", controllers.ClearCart)
+	protected.DELETE("/cart/:id", controllers.RemoveFromCart)
+	protected.PATCH("/cart/item", controllers.AddToCart)
+	protected.POST("/cart/merge", controllers.MergeCarts)
 
 	return router
 }
