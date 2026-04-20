@@ -39,6 +39,7 @@ func SetupRouter() *gin.Engine {
 
 	//User Profile routes
 	protected.GET("/users/me", controllers.GetProfile)
+	protected.PATCH("users/me", controllers.UpdateProfile)
 
 	return router
 }
