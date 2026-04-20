@@ -29,11 +29,16 @@ func SetupRouter() *gin.Engine {
 
 	protected := router.Group("/api")
 	protected.Use(security.AuthMiddleware())
+
+	//Cart routes
 	protected.GET("/cart", controllers.GetCart)
 	protected.DELETE("/cart", controllers.ClearCart)
 	protected.DELETE("/cart/:id", controllers.RemoveFromCart)
 	protected.PATCH("/cart/item", controllers.AddToCart)
 	protected.POST("/cart/merge", controllers.MergeCarts)
+
+	//User Profile routes
+	protected.GET("/users/me", controllers.GetProfile)
 
 	return router
 }
