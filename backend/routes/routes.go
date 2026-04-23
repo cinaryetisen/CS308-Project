@@ -41,9 +41,11 @@ func SetupRouter() *gin.Engine {
 	protected.GET("/users/me", controllers.GetProfile)
 	protected.PATCH("users/me", controllers.UpdateProfile)
 	protected.GET("/orders/me", controllers.GetMyOrders)
-	//These will be set to manager protected routes later
-	protected.GET("/deliveries", controllers.GetDeliveryList)
-	protected.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
+
+	//Product manager routes
+	product_manager := router.Group("/api", security.AuthMiddleware(), security.Authorize("product_manager"))
+	product_manager.GET("/deliveries", controllers.GetDeliveryList)
+	product_manager.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
 
 	return router
 }

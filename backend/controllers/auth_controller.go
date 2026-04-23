@@ -10,11 +10,12 @@ import (
 )
 
 type SignupInput struct {
-	Name        string `json:"name" binding:"required"`
-	Email       string `json:"email" binding:"required,email"`
-	TaxID       string `json:"tax_id"`
-	HomeAddress string `json:"home_address"`
-	Password    string `json:"password" binding:"required,min=6"`
+	Name        string  `json:"name" binding:"required"`
+	Email       string  `json:"email" binding:"required,email"`
+	TaxID       string  `json:"tax_id"`
+	HomeAddress string  `json:"home_address"`
+	Password    string  `json:"password" binding:"required,min=6"`
+	Role        *string `json:"role,omitempty"`
 }
 
 type LoginInput struct {
@@ -43,6 +44,11 @@ func Signup(c *gin.Context) {
 		Password:    hashedPassword,
 		TaxID:       input.TaxID,
 		HomeAddress: input.HomeAddress,
+		Role:        "customer",
+	}
+
+	if input.Role != nil {
+		user.Role = *input.Role
 	}
 
 	//Save user to PostgreSQL database
