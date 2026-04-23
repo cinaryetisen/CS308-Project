@@ -43,8 +43,8 @@ func Checkout(c *gin.Context) {
 		}
 	}
 
-	// Create a map to hold our true prices
-	realPrices := make(map[string]float64)
+	// Create a map to hold the ENTIRE product struct (for prices AND names)
+	productMap := make(map[string]models.Product)
 
 	if len(objectIDs) > 0 {
 		collection := config.MongoClient.Database("medieval_store").Collection("products")
@@ -53,9 +53,9 @@ func Checkout(c *gin.Context) {
 		if err == nil {
 			var products []models.Product
 			if err = cursor.All(context.Background(), &products); err == nil {
-				// Populate the map: Key = ProductID string, Value = Real Price
+				// Populate the map: Key = ProductID string, Value = Full Product Struct
 				for _, p := range products {
-					realPrices[p.ID.Hex()] = p.Price
+					productMap[p.ID.Hex()] = p
 				}
 			}
 		}
@@ -75,26 +75,29 @@ func Checkout(c *gin.Context) {
 
 	// 3a. Save the main Order
 	if err := tx.Create(&newOrder).Error; err != nil {
-		tx.Rollback() // Cancel everything if this fails
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
 		return
 	}
 
 	// 3b. Loop through cart items and attach them to the Order
 	for _, item := range input.CartItems {
-		// Grab the verified price from our MongoDB map!
-		// If the product was deleted or doesn't exist, it safely defaults to 0.00
-		verifiedPrice := realPrices[item.ProductID]
+
+		// Securely extract the price from our MongoDB map
+		verifiedPrice := 0.00
+		if p, found := productMap[item.ProductID]; found {
+			verifiedPrice = p.Price
+		}
 
 		orderItem := models.OrderItem{
 			OrderID:   newOrder.ID,
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
-			Price:     verifiedPrice, // <--- NO MORE HARDCODING!
+			Price:     verifiedPrice,
 		}
 
 		if err := tx.Create(&orderItem).Error; err != nil {
-			tx.Rollback() // Cancel the whole order if a single item fails
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order items"})
 			return
 		}
@@ -115,19 +118,19 @@ func Checkout(c *gin.Context) {
 	if err := config.DB.First(&user, userID).Error; err == nil {
 
 		// 5. Run the PDF & Email logic in a BACKGROUND goroutine
-		go func(u models.User, order models.Order, items []models.CartItem) {
+		go func(u models.User, order models.Order, items []models.CartItem, pMap map[string]models.Product) {
 			log.Println("Generating PDF Invoice...")
 
-			// 1. Generate the PDF
-			pdfPath, err := services.GenerateInvoicePDF(u, order, items)
+			// Generate the PDF
+			pdfPath, err := services.GenerateInvoicePDF(u, order, items, pMap)
 			if err != nil {
 				log.Printf("Error generating PDF: %v\n", err)
-				return // Stop if PDF fails
+				return
 			}
 
 			log.Println("PDF Generated successfully. Sending email...")
 
-			// 2. Email the PDF
+			// Email the PDF
 			err = services.SendInvoiceEmail(u.Email, pdfPath)
 			if err != nil {
 				log.Printf("Error sending invoice email: %v\n", err)
@@ -135,7 +138,7 @@ func Checkout(c *gin.Context) {
 				log.Printf("Invoice successfully sent to %s\n", u.Email)
 			}
 
-		}(user, newOrder, input.CartItems)
+		}(user, newOrder, input.CartItems, productMap)
 	}
 
 	// 6. Instantly send success response to frontend
