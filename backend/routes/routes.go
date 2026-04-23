@@ -13,7 +13,7 @@ func SetupRouter() *gin.Engine {
 
 	//CORS setup
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{"*"}, // Note: For production, you'll want to lock this down to your exact frontend URL
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -39,13 +39,22 @@ func SetupRouter() *gin.Engine {
 
 	//User Profile routes
 	protected.GET("/users/me", controllers.GetProfile)
-	protected.PATCH("users/me", controllers.UpdateProfile)
+	protected.PATCH("/users/me", controllers.UpdateProfile)
+
+	// Checkout & Orders
+	protected.POST("/checkout", controllers.Checkout)
 	protected.GET("/orders/me", controllers.GetMyOrders)
 
+<<<<<<< SCRUM-50-create-checkout-and-mock-payment-endpoint-backend
+	//These will be set to manager protected routes later
+	protected.GET("/deliveries", controllers.GetDeliveryList)
+	protected.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
+=======
 	//Product manager routes
 	product_manager := router.Group("/api", security.AuthMiddleware(), security.Authorize("product_manager"))
 	product_manager.GET("/deliveries", controllers.GetDeliveryList)
 	product_manager.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
+>>>>>>> main
 
 	return router
 }
