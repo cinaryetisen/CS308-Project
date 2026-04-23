@@ -28,7 +28,7 @@ func main() {
 		log.Fatalf("Mongo initializaiton failed: %v", err)
 	}
 
-	config.DB.AutoMigrate(&models.CartItem{})
+	config.DB.AutoMigrate(&models.CartItem{}, &models.Order{}, &models.OrderItem{})
 	//Set up router
 	router := routes.SetupRouter()
 
