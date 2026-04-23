@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -9,6 +10,8 @@ import (
 	"medieval-store/services"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Checkout processes the order, generates a PDF invoice, and emails it
@@ -32,17 +35,80 @@ func Checkout(c *gin.Context) {
 		return
 	}
 
-	// 3. Create the new order in the database
-	newOrder := models.Order{
-		CustomerID: userID.(uint),
-		Status:     "processing",
-		Completed:  false,
+	var objectIDs []primitive.ObjectID
+	for _, item := range input.CartItems {
+		objID, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err == nil {
+			objectIDs = append(objectIDs, objID)
+		}
 	}
 
-	if err := config.DB.Create(&newOrder).Error; err != nil {
+	// Create a map to hold our true prices
+	realPrices := make(map[string]float64)
+
+	if len(objectIDs) > 0 {
+		collection := config.MongoClient.Database("medieval_store").Collection("products")
+		cursor, err := collection.Find(context.Background(), bson.M{"_id": bson.M{"$in": objectIDs}})
+
+		if err == nil {
+			var products []models.Product
+			if err = cursor.All(context.Background(), &products); err == nil {
+				// Populate the map: Key = ProductID string, Value = Real Price
+				for _, p := range products {
+					realPrices[p.ID.Hex()] = p.Price
+				}
+			}
+		}
+	}
+
+	// 3. Create the new order in the database
+	newOrder := models.Order{
+		CustomerID:      userID.(uint),
+		TotalPrice:      input.TotalPrice,
+		DeliveryAddress: input.ShippingAddress,
+		Status:          "processing",
+		Completed:       false,
+	}
+
+	// Start a Database Transaction for safety
+	tx := config.DB.Begin()
+
+	// 3a. Save the main Order
+	if err := tx.Create(&newOrder).Error; err != nil {
+		tx.Rollback() // Cancel everything if this fails
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
 		return
 	}
+
+	// 3b. Loop through cart items and attach them to the Order
+	for _, item := range input.CartItems {
+		// Grab the verified price from our MongoDB map!
+		// If the product was deleted or doesn't exist, it safely defaults to 0.00
+		verifiedPrice := realPrices[item.ProductID]
+
+		orderItem := models.OrderItem{
+			OrderID:   newOrder.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Price:     verifiedPrice, // <--- NO MORE HARDCODING!
+		}
+
+		if err := tx.Create(&orderItem).Error; err != nil {
+			tx.Rollback() // Cancel the whole order if a single item fails
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order items"})
+			return
+		}
+	}
+
+	// 3c. Clear the user's shopping cart
+	if err := tx.Where("user_id = ?", userID).Delete(&models.CartItem{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear shopping cart"})
+		return
+	}
+
+	// 3d. If everything succeeded, permanently commit the changes!
+	tx.Commit()
 
 	// 4. Fetch the User's details
 	var user models.User
@@ -74,7 +140,7 @@ func Checkout(c *gin.Context) {
 
 	// 6. Instantly send success response to frontend
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Order placed successfully! Your receipt is being dispatched via raven.",
+		"message": "Order placed successfully! Your receipt is being dispatched.",
 		"order":   newOrder,
 	})
 }
