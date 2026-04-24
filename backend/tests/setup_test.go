@@ -1,15 +1,20 @@
 package tests
 
 import (
+	"log"
 	"medieval-store/config"
 	"medieval-store/models"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB creates a temporary, in-memory SQLite database just for testing
 func setupTestDB() {
+	if err := godotenv.Load("../.env"); err != nil {
+		log.Println("Warning: Could not find ../.env file. Relying on system environment variables.")
+	}
 	// "file::memory:?cache=shared" tells SQLite to run entirely in RAM
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {

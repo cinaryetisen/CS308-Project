@@ -17,5 +17,7 @@ type Review struct {
 	Rating  int    `bson:"rating" json:"rating"` // e.g., 1 through 5
 	Comment string `bson:"comment" json:"comment"`
 
+	Status string `bson:"status" json:"status"` // "pending", "approved", or "rejected"
+
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 }
