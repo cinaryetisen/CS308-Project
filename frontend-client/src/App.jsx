@@ -6,6 +6,9 @@ import ShoppingCart from './pages/ShoppingCart';
 import ProductDetail from './pages/ProductDetail';
 import Profile from './pages/Profile';
 import MyOrders from "./pages/MyOrders";
+import PMLayout from "./pages/product-manager/PMLayout";
+import DeliveryManager from "./pages/product-manager/DeliveryManager";
+
 
 function App() {
   return (
@@ -18,6 +21,9 @@ function App() {
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/orders" element={<MyOrders />} />
+        <Route path="/pm" element={<PMLayout />}>
+          <Route path="deliveries" element={<DeliveryManager />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
