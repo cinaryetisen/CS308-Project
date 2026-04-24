@@ -86,8 +86,8 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Should fail with a 500 error because the email is taken
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	// Should fail with a 409 error because the email is taken
+	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
 func TestSignup_MissingFields(t *testing.T) {

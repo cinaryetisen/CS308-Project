@@ -1,10 +1,13 @@
 package controllers
 
 import (
+	"log"
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/security"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,14 +29,23 @@ type LoginInput struct {
 func Signup(c *gin.Context) {
 	var input SignupInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Signup Input JSON parsing failed with error: %s\n", err.Error())
+		//If the error message contains 'Password', we know it's a weak password problem
+		if strings.Contains(err.Error(), "Password") {
+			errs.Abort(c, errs.AuthWeakPassword)
+			return
+		}
+
+		//Otherwise, default to invalid email/general bad request
+		errs.Abort(c, errs.AuthInvalidEmail)
 		return
 	}
 
 	//Hash the password
 	hashedPassword, err := security.HashPassword(input.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt password"})
+		errs.Abort(c, errs.InternalError)
+		log.Println("Failed to encrypt password")
 		return
 	}
 
@@ -51,9 +63,23 @@ func Signup(c *gin.Context) {
 		user.Role = *input.Role
 	}
 
+	var count int64
+	if err := config.DB.Model(models.User{}).Where("email = ?", user.Email).Count(&count).Error; err != nil {
+		errs.Abort(c, errs.InternalError)
+		log.Printf("Failed to query email with error %s\n", err.Error())
+		return
+	}
+
+	if count > 0 {
+		errs.Abort(c, errs.AuthUserExists)
+		return
+	}
+
 	//Save user to PostgreSQL database
 	if err := config.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user. Email might already exist."})
+		errs.Abort(c, errs.InternalError)
+		log.Printf("Failed to create user with error %s\n", err.Error())
+		return
 	}
 
 	user.Password = ""
@@ -64,7 +90,8 @@ func Signup(c *gin.Context) {
 func Login(c *gin.Context) {
 	var input LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.Abort(c, errs.AuthInvalidEmail)
+		log.Printf("Failed login with error %s\n", err.Error())
 		return
 	}
 
@@ -72,20 +99,21 @@ func Login(c *gin.Context) {
 
 	//Find user
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		errs.Abort(c, errs.AuthInvalidCreds)
 		return
 	}
 
 	//Verify password by checking its hash
 	if match := security.CheckPasswordHash(input.Password, user.Password); !match {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		errs.Abort(c, errs.AuthInvalidCreds)
 		return
 	}
 
 	//Generate JWT
 	token, err := security.GenerateToken(user.ID, user.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		errs.Abort(c, errs.InternalError)
+		log.Println("Failed to generate token")
 		return
 	}
 

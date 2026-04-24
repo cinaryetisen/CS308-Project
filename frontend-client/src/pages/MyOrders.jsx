@@ -4,12 +4,14 @@ import { useNavigate } from "react-router-dom";
 const API_BASE = import.meta.env.VITE_API_URL;
 
 const STATUS_STYLES = {
-    processing:  "bg-yellow-100 text-yellow-700",
+    processing:   "bg-yellow-100 text-yellow-700",
     "in-transit": "bg-blue-100 text-blue-700",
-    delivered:   "bg-green-100 text-green-700",
-    cancelled:   "bg-red-100 text-red-700",
-    returned:    "bg-gray-100 text-gray-600",
+    delivered:    "bg-green-100 text-green-700",
+    cancelled:    "bg-red-100 text-red-700",
+    returned:     "bg-gray-100 text-gray-600",
 };
+
+const STATUS_STEPS = ["processing", "in-transit", "delivered"];
 
 function StatusBadge({ status }) {
     const style = STATUS_STYLES[status] || "bg-gray-100 text-gray-600";
@@ -21,14 +23,46 @@ function StatusBadge({ status }) {
     );
 }
 
-function OrderCard({ order }) {
+function StatusTracker({ status }) {
+    const currentIndex = STATUS_STEPS.indexOf(status);
+    return (
+        <div className="flex items-center gap-0 w-full my-3">
+            {STATUS_STEPS.map((step, i) => {
+                const isCompleted = i < currentIndex;
+                const isActive = i === currentIndex;
+                return (
+                    <div key={step} className="flex items-center flex-1">
+                        <div className="flex flex-col items-center flex-1">
+                            <div className={`w-3 h-3 rounded-full border-2 transition-colors ${
+                                isCompleted ? "bg-blue-600 border-blue-600"
+                                    : isActive   ? "bg-white border-blue-600"
+                                        :              "bg-white border-gray-300"
+                            }`} />
+                            <span className={`text-xs mt-1 font-medium capitalize ${
+                                isActive ? "text-blue-600" : isCompleted ? "text-gray-500" : "text-gray-300"
+                            }`}>
+                {step}
+              </span>
+                        </div>
+                        {i < STATUS_STEPS.length - 1 && (
+                            <div className={`h-0.5 flex-1 mb-4 ${i < currentIndex ? "bg-blue-600" : "bg-gray-200"}`} />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function OrderCard({ order, isCurrent }) {
     const [expanded, setExpanded] = useState(false);
     const date = new Date(order.created_at).toLocaleDateString("en-US", {
         year: "numeric", month: "short", day: "numeric",
     });
 
     return (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className={`bg-white border rounded-xl overflow-hidden ${isCurrent ? "border-blue-200" : "border-gray-200"}`}>
+
             {/* Order header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
                 <div className="flex flex-col gap-0.5">
@@ -37,7 +71,6 @@ function OrderCard({ order }) {
           </span>
                     <span className="text-sm text-gray-500">{date}</span>
                 </div>
-
                 <div className="flex items-center gap-3 sm:gap-4">
                     <StatusBadge status={order.status} />
                     <span className="text-base font-bold text-gray-900">
@@ -51,6 +84,16 @@ function OrderCard({ order }) {
                     </button>
                 </div>
             </div>
+
+            {/* Status tracker — current orders only, and only for the 3 main statuses */}
+            {isCurrent && STATUS_STEPS.includes(order.status) && (
+                <div className="px-5 pb-2 border-t border-blue-50 pt-3">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            Delivery progress
+          </span>
+                    <StatusTracker status={order.status} />
+                </div>
+            )}
 
             {/* Delivery address */}
             <div className="px-5 pb-3 border-t border-gray-100 pt-3">
@@ -95,6 +138,28 @@ function OrderCard({ order }) {
     );
 }
 
+function Section({ title, count, children, emptyIcon, emptyTitle, emptyText }) {
+    return (
+        <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+                {count > 0 && (
+                    <span className="text-sm text-gray-400">{count} order{count !== 1 ? "s" : ""}</span>
+                )}
+            </div>
+            {count === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-xl px-6 py-10 text-center">
+                    <p className="text-3xl mb-2">{emptyIcon}</p>
+                    <p className="text-gray-700 font-semibold">{emptyTitle}</p>
+                    <p className="text-sm text-gray-400 mt-1">{emptyText}</p>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-3">{children}</div>
+            )}
+        </div>
+    );
+}
+
 export default function MyOrders() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -110,7 +175,6 @@ export default function MyOrders() {
                 });
                 if (!res.ok) throw new Error("Failed to fetch orders");
                 const data = await res.json();
-                // Sort newest first
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
             } catch (err) {
@@ -133,6 +197,9 @@ export default function MyOrders() {
         );
     }
 
+    const currentOrders = orders.filter((o) => !o.completed);
+    const previousOrders = orders.filter((o) => o.completed);
+
     return (
         <div className="min-h-screen bg-gray-100 py-8 px-4">
             <div className="max-w-2xl mx-auto">
@@ -146,12 +213,7 @@ export default function MyOrders() {
                 </button>
 
                 {/* Page title */}
-                <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
-                    {orders.length > 0 && (
-                        <span className="text-sm text-gray-400">{orders.length} order{orders.length !== 1 ? "s" : ""}</span>
-                    )}
-                </div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-6">My Orders</h1>
 
                 {/* Error state */}
                 {error && (
@@ -160,27 +222,35 @@ export default function MyOrders() {
                     </div>
                 )}
 
-                {/* Empty state */}
-                {!error && orders.length === 0 && (
-                    <div className="bg-white border border-gray-200 rounded-xl px-6 py-14 text-center">
-                        <p className="text-4xl mb-3">📦</p>
-                        <p className="text-gray-700 font-semibold">No orders yet</p>
-                        <p className="text-sm text-gray-400 mt-1">Your orders will appear here once you make a purchase.</p>
-                        <button
-                            className="mt-5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                            onClick={() => navigate("/")}
+                {!error && (
+                    <>
+                        {/* Current orders */}
+                        <Section
+                            title="Current Orders"
+                            count={currentOrders.length}
+                            emptyIcon="🚚"
+                            emptyTitle="No active orders"
+                            emptyText="Orders you place will appear here while they're being processed or delivered."
                         >
-                            Browse products
-                        </button>
-                    </div>
-                )}
+                            {currentOrders.map((order) => (
+                                <OrderCard key={order.delivery_id} order={order} isCurrent={true} />
+                            ))}
+                        </Section>
 
-                {/* Orders list */}
-                <div className="flex flex-col gap-3">
-                    {orders.map((order) => (
-                        <OrderCard key={order.delivery_id} order={order} />
-                    ))}
-                </div>
+                        {/* Previous orders */}
+                        <Section
+                            title="Order History"
+                            count={previousOrders.length}
+                            emptyIcon="📋"
+                            emptyTitle="No previous orders"
+                            emptyText="Completed and returned orders will appear here."
+                        >
+                            {previousOrders.map((order) => (
+                                <OrderCard key={order.delivery_id} order={order} isCurrent={false} />
+                            ))}
+                        </Section>
+                    </>
+                )}
 
             </div>
         </div>

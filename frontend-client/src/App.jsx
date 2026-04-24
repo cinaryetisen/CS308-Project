@@ -7,6 +7,10 @@ import ProductDetail from './pages/ProductDetail';
 import Profile from './pages/Profile';
 import MyOrders from "./pages/MyOrders";
 import Payment from './pages/Payment';
+import PMLayout from "./pages/product-manager/PMLayout";
+import DeliveryManager from "./pages/product-manager/DeliveryManager";
+
+
 
 function App() {
   return (
@@ -20,6 +24,9 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/orders" element={<MyOrders />} />
         <Route path="/payment" element={<Payment />} />
+        <Route path="/pm" element={<PMLayout />}>
+          <Route path="deliveries" element={<DeliveryManager />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
