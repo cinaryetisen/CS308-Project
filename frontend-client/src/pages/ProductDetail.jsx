@@ -67,33 +67,66 @@ export default function ProductDetail() {
     }, [id]);
 
     // Add to Cart
-    const handleAddToCart = () => {
+    const handleAddToCart = async () => {
         if (!product || product.quantity === 0) return;
 
-        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-        const idx  = cart.findIndex((item) => item.id === product.id);
+        if (isLoggedIn) {
+            // --- LOGGED-IN USER: Send to Backend ---
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${API_URL}/api/cart/item`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({
+                        product_id: product.id,
+                        quantity: quantity // Send the amount the user selected from the state!
+                    })
+                });
 
-        if (idx >= 0) {
-            if (cart[idx].quantity >= product.quantity) {
-                setCartMsg("maxed");
-                setTimeout(() => setCartMsg(null), 1500);
-                return;
+                if (response.ok) {
+                    setCartMsg("added");
+                    setTimeout(() => setCartMsg(null), 1500);
+                } else {
+                    const errorData = await response.json();
+                    console.error("Failed to add to backend cart:", errorData.error);
+                    // If backend rejects it (e.g., trying to add more than stock allows)
+                    setCartMsg("maxed"); 
+                    setTimeout(() => setCartMsg(null), 1500);
+                }
+            } catch (error) {
+                console.error("Network error adding to cart:", error);
             }
-            cart[idx].quantity = Math.min(cart[idx].quantity + quantity, product.quantity);
         } else {
-            cart.push({
-                id:        product.id,
-                name:      product.name,
-                price:     product.price,
-                image_url: product.image_url,
-                stock:     product.quantity,
-                quantity:  Math.min(quantity, product.quantity),
-            });
-        }
+            // --- GUEST USER: Save to LocalStorage ---
+            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+            const idx  = cart.findIndex((item) => item.id === product.id);
 
-        localStorage.setItem("cart", JSON.stringify(cart));
-        setCartMsg("added");
-        setTimeout(() => setCartMsg(null), 1500);
+            if (idx >= 0) {
+                // Prevent adding more than what's in stock locally
+                if (cart[idx].quantity + quantity > product.quantity) {
+                    setCartMsg("maxed");
+                    setTimeout(() => setCartMsg(null), 1500);
+                    return;
+                }
+                cart[idx].quantity = Math.min(cart[idx].quantity + quantity, product.quantity);
+            } else {
+                cart.push({
+                    id:        product.id,
+                    name:      product.name,
+                    price:     product.price,
+                    image_url: product.image_url,
+                    stock:     product.quantity,
+                    quantity:  Math.min(quantity, product.quantity),
+                });
+            }
+
+            localStorage.setItem("cart", JSON.stringify(cart));
+            setCartMsg("added");
+            setTimeout(() => setCartMsg(null), 1500);
+        }
     };
 
     // Loading
@@ -241,7 +274,7 @@ export default function ProductDetail() {
                             )}
 
                             <div className="text-xs text-gray-400 flex flex-col gap-1 border-t pt-3">
-                                {product.model         && <span>Model: {product.model}</span>}
+                                {product.model        && <span>Model: {product.model}</span>}
                                 {product.serial_number && <span>Serial No: {product.serial_number}</span>}
                                 {product.warranty      && <span>Warranty: {product.warranty}</span>}
                                 {product.distributor   && <span>Distributor: {product.distributor}</span>}

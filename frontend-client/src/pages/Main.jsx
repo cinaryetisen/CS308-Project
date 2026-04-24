@@ -63,34 +63,65 @@ export default function Main() {
     }, [API_URL, searchQuery, sortOption]);
 
     // ── Add to Cart ───────────────────────────────────────────────────────────
-    const addToCart = (e, product) => {
+    const addToCart = async (e, product) => {
         e.stopPropagation();
         if (product.quantity === 0) return;
 
-        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-        const idx  = cart.findIndex((item) => item.id === product.id);
+        if (isLoggedIn) {
+            // --- LOGGED-IN USER: Send to Backend ---
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${API_URL}/api/cart/item`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // Include the JWT!
+                    },
+                    body: JSON.stringify({
+                        product_id: product.id,
+                        quantity: 1 // Adding 1 item at a time
+                    })
+                });
 
-        if (idx >= 0) {
-            if (cart[idx].quantity >= product.quantity) {
-                setCartFeedback((prev) => ({ ...prev, [product.id]: "maxed" }));
-                setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1500);
-                return;
+                if (response.ok) {
+                    setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
+                    setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
+                } else {
+                    const errorData = await response.json();
+                    console.error("Failed to add to backend cart:", errorData.error);
+                    // Optional: You could set a specific feedback state here for errors
+                }
+            } catch (error) {
+                console.error("Network error adding to cart:", error);
             }
-            cart[idx].quantity = Math.min(cart[idx].quantity + 1, product.quantity);
         } else {
-            cart.push({
-                id:        product.id,
-                name:      product.name,
-                price:     product.price,
-                image_url: product.image_url,
-                stock:     product.quantity,
-                quantity:  1,
-            });
-        }
+            // --- GUEST USER: Save to LocalStorage ---
+            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+            const idx  = cart.findIndex((item) => item.id === product.id);
 
-        localStorage.setItem("cart", JSON.stringify(cart));
-        setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
-        setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
+            if (idx >= 0) {
+                // Prevent adding more than what's in stock locally
+                if (cart[idx].quantity >= product.quantity) {
+                    setCartFeedback((prev) => ({ ...prev, [product.id]: "maxed" }));
+                    setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1500);
+                    return;
+                }
+                cart[idx].quantity = Math.min(cart[idx].quantity + 1, product.quantity);
+            } else {
+                cart.push({
+                    id:        product.id,
+                    name:      product.name,
+                    price:     product.price,
+                    image_url: product.image_url,
+                    stock:     product.quantity,
+                    quantity:  1,
+                });
+            }
+
+            localStorage.setItem("cart", JSON.stringify(cart));
+            setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
+            setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
+        }
     };
 
     return (
