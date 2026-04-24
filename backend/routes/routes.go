@@ -26,6 +26,7 @@ func SetupRouter() *gin.Engine {
 	api.POST("/login", controllers.Login)
 	api.GET("/products", controllers.GetProducts)
 	api.GET("/products/:id", controllers.GetProduct)
+	api.GET("/products/:product_id/reviews", controllers.GetProductReviews)
 
 	protected := router.Group("/api")
 	protected.Use(security.AuthMiddleware())
@@ -45,10 +46,15 @@ func SetupRouter() *gin.Engine {
 	protected.POST("/checkout", controllers.Checkout)
 	protected.GET("/orders/me", controllers.GetMyOrders)
 
+	//Post review
+	protected.POST("/reviews", controllers.CreateReview)
+
 	//Product manager routes
 	product_manager := router.Group("/api", security.AuthMiddleware(), security.Authorize("product_manager"))
 	product_manager.GET("/deliveries", controllers.GetDeliveryList)
 	product_manager.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
+	product_manager.GET("/reviews/pending", controllers.GetPendingReviews)
+	product_manager.PATCH("/reviews/:id/moderate", controllers.ModerateReview)
 
 	return router
 }
