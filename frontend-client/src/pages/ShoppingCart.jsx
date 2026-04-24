@@ -5,28 +5,44 @@ export default function ShoppingCart() {
     const navigate = useNavigate();
     const API_URL  = import.meta.env.VITE_API_URL;
 
-    // Auth state
-    const [isLoggedIn, setIsLoggedIn]     = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const [userData, setUserData]         = useState(null);
-    const [token, setToken]               = useState(null);
-
-    // Cart state
-    const [cartItems, setCartItems]       = useState([]);
-    const [cartLoading, setCartLoading]   = useState(true);
+    const [isLoggedIn, setIsLoggedIn]       = useState(false);
+    const [showDropdown, setShowDropdown]   = useState(false);
+    const [userData, setUserData]           = useState(null);
+    const [cartItems, setCartItems]         = useState([]);
+    const [cartLoading, setCartLoading]     = useState(true);
     const [checkoutError, setCheckoutError] = useState("");
 
-    // ── On mount: check auth ──────────────────────────────────────────────────
     useEffect(() => {
-        const storedToken = localStorage.getItem("token");
-        const storedUser  = localStorage.getItem("user");
+        const token      = localStorage.getItem("token");
+        const storedUser = localStorage.getItem("user");
 
-        if (storedToken) {
+        if (token) {
             setIsLoggedIn(true);
-            setToken(storedToken);
             if (storedUser) setUserData(JSON.parse(storedUser));
+
+            // Fetch cart from backend
+            setCartLoading(true);
+            fetch(`${API_URL}/api/cart`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    setCartItems(
+                        (data || []).map((item) => ({
+                            id:        item.product_id,
+                            name:      item.name,
+                            price:     item.price,
+                            quantity:  item.quantity,
+                            image_url: item.image_url || "",
+                            stock:     item.stock || 9999,
+                        }))
+                    );
+                })
+                .catch(() => setCartItems([]))
+                .finally(() => setCartLoading(false));
+
         } else {
-            // Logged out — read guest cart from localStorage
+            // Guest — use localStorage
             try {
                 setCartItems(JSON.parse(localStorage.getItem("cart") || "[]"));
             } catch {
@@ -36,42 +52,6 @@ export default function ShoppingCart() {
         }
     }, []);
 
-    // ── Fetch backend cart when logged in ─────────────────────────────────────
-    useEffect(() => {
-        if (!isLoggedIn || !token) return;
-
-        const fetchCart = async () => {
-            setCartLoading(true);
-            try {
-                const res = await fetch(`${API_URL}/api/cart`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error("Failed to fetch cart");
-                const data = await res.json();
-                // Backend returns CartItemResponse: { product_id, name, price, quantity, subtotal }
-                // Map to the shape the UI expects
-                setCartItems(
-                    (data || []).map((item) => ({
-                        id:        item.product_id,
-                        name:      item.name,
-                        price:     item.price,
-                        quantity:  item.quantity,
-                        image_url: item.image_url || "",
-                        stock:     item.stock || 9999,
-                    }))
-                );
-            } catch (err) {
-                console.error(err);
-                setCartItems([]);
-            } finally {
-                setCartLoading(false);
-            }
-        };
-
-        fetchCart();
-    }, [isLoggedIn, token]);
-
-    // ── Logout ────────────────────────────────────────────────────────────────
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -79,58 +59,62 @@ export default function ShoppingCart() {
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
-        setToken(null);
         setCartItems([]);
     };
 
     // ── Update quantity ───────────────────────────────────────────────────────
+    // Backend increments by delta, so we send +1 or -1
     const updateQuantity = async (id, newQty) => {
         if (newQty <= 0) { removeItem(id); return; }
 
-        if (isLoggedIn) {
-            try {
-                await fetch(`${API_URL}/api/cart/item`, {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ product_id: id, quantity: newQty })
-                });
-            } catch (err) {
-                console.error("Failed to update quantity:", err);
-            }
-        }
+        const currentItem = cartItems.find((item) => item.id === id);
+        if (!currentItem) return;
+        const delta = newQty - currentItem.quantity;
 
+        // Optimistically update UI first
         const updated = cartItems.map((item) =>
-            item.id === id ? { ...item, quantity: Math.min(newQty, item.stock) } : item
+            item.id === id ? { ...item, quantity: newQty } : item
         );
         setCartItems(updated);
-        if (!isLoggedIn) localStorage.setItem("cart", JSON.stringify(updated));
+        if (!isLoggedIn) { localStorage.setItem("cart", JSON.stringify(updated)); return; }
+
+        // Sync with backend
+        try {
+            const token = localStorage.getItem("token");
+            await fetch(`${API_URL}/api/cart/item`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ product_id: id, quantity: delta })
+            });
+        } catch (err) {
+            console.error("Failed to update quantity:", err);
+        }
     };
 
     // ── Remove item ───────────────────────────────────────────────────────────
     const removeItem = async (id) => {
-        if (isLoggedIn) {
-            try {
-                await fetch(`${API_URL}/api/cart/${id}`, {
-                    method: "DELETE",
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-            } catch (err) {
-                console.error("Failed to remove item:", err);
-            }
-        }
-
+        // Optimistically update UI first
         const updated = cartItems.filter((item) => item.id !== id);
         setCartItems(updated);
-        if (!isLoggedIn) localStorage.setItem("cart", JSON.stringify(updated));
+        if (!isLoggedIn) { localStorage.setItem("cart", JSON.stringify(updated)); return; }
+
+        // Sync with backend
+        try {
+            const token = localStorage.getItem("token");
+            await fetch(`${API_URL}/api/cart/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+        } catch (err) {
+            console.error("Failed to remove item:", err);
+        }
     };
 
-    // ── Total ─────────────────────────────────────────────────────────────────
     const totalCost = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // ── Checkout ──────────────────────────────────────────────────────────────
     const handleCheckout = () => {
         setCheckoutError("");
         if (!isLoggedIn) {
@@ -209,7 +193,6 @@ export default function ShoppingCart() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-
                         {cartItems.map((item) => (
                             <div
                                 key={item.id}
@@ -220,7 +203,6 @@ export default function ShoppingCart() {
                                     alt={item.name}
                                     className="w-16 h-16 object-contain rounded-lg bg-gray-100"
                                 />
-
                                 <div className="flex-1">
                                     <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
                                     <div className="flex items-center gap-2 mt-2">
@@ -235,11 +217,9 @@ export default function ShoppingCart() {
                                         >+</button>
                                     </div>
                                 </div>
-
                                 <div className="text-lg font-bold text-gray-800 min-w-[70px] text-right">
                                     ${(item.price * item.quantity).toFixed(2)}
                                 </div>
-
                                 <button
                                     onClick={() => removeItem(item.id)}
                                     className="text-red-400 hover:text-red-600 text-sm font-medium transition"
@@ -252,13 +232,11 @@ export default function ShoppingCart() {
                         <div className="mt-10 bg-white border border-gray-200 rounded-xl p-6 flex flex-col items-end shadow-sm">
                             <h3 className="text-xl text-gray-600 mb-2">Total</h3>
                             <p className="text-3xl font-bold text-gray-800 mb-6">${totalCost.toFixed(2)}</p>
-
                             {checkoutError && (
                                 <div className="w-full text-center px-4 py-3 mb-4 text-sm text-red-700 bg-red-100 border border-red-300 rounded-md">
                                     {checkoutError}
                                 </div>
                             )}
-
                             <button
                                 onClick={handleCheckout}
                                 className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition shadow-md text-lg font-bold"
@@ -266,7 +244,6 @@ export default function ShoppingCart() {
                                 Proceed to Payment
                             </button>
                         </div>
-
                     </div>
                 )}
             </main>
