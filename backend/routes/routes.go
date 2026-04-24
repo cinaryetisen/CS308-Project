@@ -26,7 +26,7 @@ func SetupRouter() *gin.Engine {
 	api.POST("/login", controllers.Login)
 	api.GET("/products", controllers.GetProducts)
 	api.GET("/products/:id", controllers.GetProduct)
-	api.GET("/products/:product_id/reviews", controllers.GetProductReviews)
+	api.GET("/products/:id/reviews", controllers.GetProductReviews)
 
 	protected := router.Group("/api")
 	protected.Use(security.AuthMiddleware())

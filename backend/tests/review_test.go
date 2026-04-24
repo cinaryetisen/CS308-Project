@@ -24,7 +24,7 @@ func setupReviewRouter() *gin.Engine {
 	router := gin.New()
 
 	// Public
-	router.GET("/api/products/:product_id/reviews", controllers.GetProductReviews)
+	router.GET("/api/products/:id/reviews", controllers.GetProductReviews)
 
 	// Protected (Customer)
 	protected := router.Group("/api")
