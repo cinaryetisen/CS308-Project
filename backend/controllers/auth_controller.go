@@ -7,6 +7,7 @@ import (
 	"medieval-store/models"
 	"medieval-store/security"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +29,15 @@ type LoginInput struct {
 func Signup(c *gin.Context) {
 	var input SignupInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Signup Input JSON parsing failed with error: %s\n", err.Error())
+		//If the error message contains 'Password', we know it's a weak password problem
+		if strings.Contains(err.Error(), "Password") {
+			errs.Abort(c, errs.AuthWeakPassword)
+			return
+		}
+
+		//Otherwise, default to invalid email/general bad request
+		errs.Abort(c, errs.AuthInvalidEmail)
 		return
 	}
 
