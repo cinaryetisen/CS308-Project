@@ -10,6 +10,7 @@ export default function Main() {
     const [sortOption, setSortOption]     = useState("default");
     const [searchQuery, setSearchQuery]   = useState("");
     const [cartFeedback, setCartFeedback] = useState({});
+    const [cartCount, setCartCount]       = useState(0);
 
     // Auth state
     const [isLoggedIn, setIsLoggedIn]     = useState(false);
@@ -25,6 +26,31 @@ export default function Main() {
         }
     }, []);
 
+    // Fetch initial cart count on mount
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchCartCount();
+        } else {
+            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+            setCartCount(cart.length);
+        }
+    }, [isLoggedIn]);
+
+    async function fetchCartCount() {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/api/cart`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            // data is an array of cart items — count unique product types
+            setCartCount(Array.isArray(data) ? data.length : 0);
+        } catch {
+            // silently fail — badge just won't show
+        }
+    }
+
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -32,6 +58,7 @@ export default function Main() {
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
+        setCartCount(0);
     };
 
     // Fetch products with search + sort
@@ -68,39 +95,34 @@ export default function Main() {
         if (product.quantity === 0) return;
 
         if (isLoggedIn) {
-            // --- LOGGED-IN USER: Send to Backend ---
             try {
                 const token = localStorage.getItem("token");
                 const response = await fetch(`${API_URL}/api/cart/item`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // Include the JWT!
+                        'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        product_id: product.id,
-                        quantity: 1 // Adding 1 item at a time
-                    })
+                    body: JSON.stringify({ product_id: product.id, quantity: 1 })
                 });
 
                 if (response.ok) {
                     setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
                     setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
+                    // Refresh count from backend to stay in sync
+                    fetchCartCount();
                 } else {
                     const errorData = await response.json();
                     console.error("Failed to add to backend cart:", errorData.error);
-                    // Optional: You could set a specific feedback state here for errors
                 }
             } catch (error) {
                 console.error("Network error adding to cart:", error);
             }
         } else {
-            // --- GUEST USER: Save to LocalStorage ---
             const cart = JSON.parse(localStorage.getItem("cart") || "[]");
             const idx  = cart.findIndex((item) => item.id === product.id);
 
             if (idx >= 0) {
-                // Prevent adding more than what's in stock locally
                 if (cart[idx].quantity >= product.quantity) {
                     setCartFeedback((prev) => ({ ...prev, [product.id]: "maxed" }));
                     setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1500);
@@ -116,6 +138,8 @@ export default function Main() {
                     stock:     product.quantity,
                     quantity:  1,
                 });
+                // Only increment count when a new product type is added
+                setCartCount((c) => c + 1);
             }
 
             localStorage.setItem("cart", JSON.stringify(cart));
@@ -143,8 +167,14 @@ export default function Main() {
                         />
                     </div>
                     <nav className="flex items-center space-x-3 sm:space-x-6 flex-shrink-0">
-                        <Link to="/shoppingcart" className="text-gray-700 hover:text-blue-600 transition text-sm sm:text-base">
+                        {/* Cart icon with badge */}
+                        <Link to="/shoppingcart" className="relative text-gray-700 hover:text-blue-600 transition text-sm sm:text-base">
                             🛒 <span className="hidden sm:inline">Cart</span>
+                            {cartCount > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                                    {cartCount > 99 ? "99+" : cartCount}
+                                </span>
+                            )}
                         </Link>
                         {isLoggedIn ? (
                             <div className="relative">
@@ -212,7 +242,6 @@ export default function Main() {
                                     onClick={() => navigate(`/products/${product.id}`)}
                                     className="bg-white rounded-2xl shadow-md p-5 flex flex-col cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                                 >
-                                    {/* Image */}
                                     <div className="w-full h-48 bg-gray-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden">
                                         <img
                                             src={product.image_url}
@@ -220,25 +249,17 @@ export default function Main() {
                                             className="h-full object-contain"
                                         />
                                     </div>
-
-                                    {/* Category badge */}
                                     {product.category && (
                                         <span className="text-xs text-blue-600 font-semibold mb-1">
                                             {product.category}
                                         </span>
                                     )}
-
-                                    {/* Name */}
                                     <h3 className="text-lg font-semibold text-gray-800 mb-1 line-clamp-2">
                                         {product.name}
                                     </h3>
-
-                                    {/* Rating */}
                                     <p className="text-sm text-gray-500 mb-1">
                                         ⭐ {product.rating} ({product.review_count} reviews)
                                     </p>
-
-                                    {/* Price */}
                                     <div className="mb-1">
                                         {discountedPrice ? (
                                             <div className="flex items-center gap-2">
@@ -258,13 +279,9 @@ export default function Main() {
                                             </p>
                                         )}
                                     </div>
-
-                                    {/* Stock */}
                                     <p className={`text-sm mb-4 ${outOfStock ? "text-red-500" : "text-green-600"}`}>
                                         {outOfStock ? "Out of Stock" : `${product.quantity} left in stock`}
                                     </p>
-
-                                    {/* Add to Cart */}
                                     <button
                                         onClick={(e) => addToCart(e, product)}
                                         disabled={outOfStock}
@@ -272,19 +289,16 @@ export default function Main() {
                                             outOfStock
                                                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                                                 : feedback === "added"
-                                                ? "bg-green-500 text-white"
-                                                : feedback === "maxed"
-                                                ? "bg-red-400 text-white"
-                                                : "bg-blue-600 text-white hover:bg-blue-700"
+                                                    ? "bg-green-500 text-white"
+                                                    : feedback === "maxed"
+                                                        ? "bg-red-400 text-white"
+                                                        : "bg-blue-600 text-white hover:bg-blue-700"
                                         }`}
                                     >
-                                        {outOfStock
-                                            ? "Out of Stock"
-                                            : feedback === "added"
-                                            ? "✓ Added!"
-                                            : feedback === "maxed"
-                                            ? "Max reached"
-                                            : "Add to Cart"}
+                                        {outOfStock ? "Out of Stock"
+                                            : feedback === "added" ? "✓ Added!"
+                                                : feedback === "maxed" ? "Max reached"
+                                                    : "Add to Cart"}
                                     </button>
                                 </div>
                             );
