@@ -103,7 +103,7 @@ func GetProducts(c *gin.Context) {
 	case "price_desc":
 		sortStage = bson.D{{Key: "tmp_sort_price", Value: -1}}
 	case "popular":
-		sortStage = bson.D{{Key: "review_count", Value: -1}}
+		sortStage = bson.D{{Key: "rating", Value: -1}}
 	default:
 		sortStage = bson.D{{Key: "created_at", Value: -1}} // Default sorting
 	}
