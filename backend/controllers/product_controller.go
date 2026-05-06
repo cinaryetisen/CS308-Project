@@ -78,11 +78,11 @@ func GetProducts(c *gin.Context) {
 	}
 	pipeline = append(pipeline, bson.D{{Key: "$match", Value: filter}})
 
-	// Stage B: Calculate a TEMPORARY price for sorting only ($addFields)
-	// tmp_sort_price = price - (price * (discount / 100))
+	// Stage B: Calculate TEMPORARY variables for sorting ($addFields)
 	pipeline = append(pipeline, bson.D{{
 		Key: "$addFields",
 		Value: bson.M{
+			// tmp_sort_price = price - (price * (discount / 100))
 			"tmp_sort_price": bson.M{
 				"$subtract": bson.A{
 					"$price",
@@ -92,10 +92,14 @@ func GetProducts(c *gin.Context) {
 					}},
 				},
 			},
+			// popularity_score = rating * review_count
+			"popularity_score": bson.M{
+				"$multiply": bson.A{"$rating", "$review_count"},
+			},
 		},
 	}})
 
-	// Stage C: Sort using the temporary variable ($sort)
+	// Stage C: Sort using the temporary variables ($sort)
 	var sortStage bson.D
 	switch sortParam {
 	case "price_asc":
@@ -103,15 +107,15 @@ func GetProducts(c *gin.Context) {
 	case "price_desc":
 		sortStage = bson.D{{Key: "tmp_sort_price", Value: -1}}
 	case "popular":
-		sortStage = bson.D{{Key: "rating", Value: -1}}
+		sortStage = bson.D{{Key: "popularity_score", Value: -1}}
 	default:
 		sortStage = bson.D{{Key: "created_at", Value: -1}} // Default sorting
 	}
 	pipeline = append(pipeline, bson.D{{Key: "$sort", Value: sortStage}})
 
-	// Stage D: Destroy the temporary variable ($unset)
+	// Stage D: Destroy the temporary variables ($unset)
 	// This ensures the data perfectly matches your existing Go Product struct!
-	pipeline = append(pipeline, bson.D{{Key: "$unset", Value: "tmp_sort_price"}})
+	pipeline = append(pipeline, bson.D{{Key: "$unset", Value: bson.A{"tmp_sort_price", "popularity_score"}}})
 
 	// 3. Execute the Pipeline
 	cursor, err := collection.Aggregate(ctx, pipeline)
