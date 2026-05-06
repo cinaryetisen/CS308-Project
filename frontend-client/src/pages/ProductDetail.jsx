@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-// FIX: Imported useOutletContext
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 
 export default function ProductDetail() {
@@ -12,6 +11,7 @@ export default function ProductDetail() {
     const [error, setError]       = useState("");
     const [quantity, setQuantity] = useState(1);
     const [cartMsg, setCartMsg]   = useState(null);
+    const [cartCount, setCartCount] = useState(0);
     
     // Grab the refresh function from MainLayout
     const { refreshCartCount } = useOutletContext();
@@ -46,7 +46,7 @@ export default function ProductDetail() {
             fetchCartCount();
         } else {
             const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-            setCartCount(cart.length);
+            setCartCount(cart.reduce((sum, item) => sum + parseInt(item.quantity || 1, 10), 0));
         }
     }, [isLoggedIn]);
 
@@ -58,7 +58,7 @@ export default function ProductDetail() {
             });
             if (!res.ok) return;
             const data = await res.json();
-            setCartCount(Array.isArray(data) ? data.length : 0);
+            setCartCount(Array.isArray(data) ? data.reduce((sum, item) => sum + parseInt(item.quantity || 1, 10), 0) : 0);
         } catch {
             // silently fail
         }
@@ -170,7 +170,8 @@ export default function ProductDetail() {
                 if (response.ok) {
                     setCartMsg("added");
                     setTimeout(() => setCartMsg(null), 1500);
-                    refreshCartCount(); // FIX: Notify the layout to update the header
+                    refreshCartCount(); // Notify the Layout's header
+                    fetchCartCount(); 
                 } else {
                     const errorData = await response.json();
                     console.error("Failed to add to backend cart:", errorData.error);
@@ -200,11 +201,12 @@ export default function ProductDetail() {
                     stock:     product.quantity,
                     quantity:  Math.min(quantity, product.quantity),
                 });
-                setCartCount((c) => c + 1);
             }
 
             localStorage.setItem("cart", JSON.stringify(cart));
-            refreshCartCount(); // FIX: Notify the layout to update the header
+            refreshCartCount(); // Notify the Layout's header
+            
+            setCartCount((c) => c + Math.min(quantity, product.quantity));
             
             setCartMsg("added");
             setTimeout(() => setCartMsg(null), 1500);
