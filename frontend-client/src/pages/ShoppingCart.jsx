@@ -1,9 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
+// FIX: Moved API_URL outside the component so it doesn't trigger unnecessary re-renders
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function ShoppingCart() {
     const navigate = useNavigate();
-    const API_URL  = import.meta.env.VITE_API_URL;
 
     const [isLoggedIn, setIsLoggedIn]       = useState(false);
     const [cartItems, setCartItems]         = useState([]);
@@ -48,7 +50,7 @@ export default function ShoppingCart() {
             }
             setCartLoading(false);
         }
-    }, [API_URL]);
+    }, []); // FIX: Removed API_URL from the dependency array
 
     // ── Logic: Update Quantity ────────────────────────────────────────────────
     const updateQuantity = async (id, newQty) => {
@@ -101,7 +103,8 @@ export default function ShoppingCart() {
     };
 
     // ── Logic: Calculations & Checkout ────────────────────────────────────────
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    // FIX: Added parseInt to guarantee math addition instead of string concatenation
+    const totalItems = cartItems.reduce((sum, item) => sum + parseInt(item.quantity || 0, 10), 0);
     const totalCost = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const handleCheckout = () => {
@@ -166,7 +169,8 @@ export default function ShoppingCart() {
                                 
                                 <div className="flex-grow flex flex-col gap-1 z-10 w-full text-center sm:text-left">
                                     <span className="font-label text-[10px] uppercase tracking-widest text-green-700 dark:text-[#add461]">
-                                        {item.category || "Product"}
+                                        {/* FIX: Safely parse category in case backend returns an object */}
+                                        {typeof item.category === 'object' && item.category !== null ? item.category.name : (item.category || "Product")}
                                     </span>
                                     <h3 className="font-headline text-2xl text-gray-900 dark:text-[#f5ded3]">{item.name}</h3>
                                     

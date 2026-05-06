@@ -100,9 +100,7 @@ export default function Main() {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
-                        'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ product_id: product.id, quantity: 1 })
                     body: JSON.stringify({ product_id: product.id, quantity: 1 })
                 });
                 if (response.ok) {
