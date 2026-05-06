@@ -1,64 +1,28 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 export default function Main() {
     const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
+    
+    // Grab the refresh function passed down from MainLayout
+    const { refreshCartCount } = useOutletContext();
 
     const [products, setProducts]         = useState([]);
     const [loading, setLoading]           = useState(true);
     const [sortOption, setSortOption]     = useState("default");
     const [searchQuery, setSearchQuery]   = useState("");
     const [cartFeedback, setCartFeedback] = useState({});
-    const [cartCount, setCartCount]       = useState(0);
 
     // Auth state
     const [isLoggedIn, setIsLoggedIn]     = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const [userData, setUserData]         = useState(null);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-        const user  = localStorage.getItem("user");
         if (token) {
             setIsLoggedIn(true);
-            if (user) setUserData(JSON.parse(user));
         }
     }, []);
-
-    // Fetch initial cart count on mount
-    useEffect(() => {
-        if (isLoggedIn) {
-            fetchCartCount();
-        } else {
-            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-            setCartCount(cart.length);
-        }
-    }, [isLoggedIn]);
-
-    async function fetchCartCount() {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/api/cart`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            setCartCount(Array.isArray(data) ? data.length : 0);
-        } catch {
-            // silently fail
-        }
-    }
-
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("cart");
-        setIsLoggedIn(false);
-        setShowDropdown(false);
-        setUserData(null);
-        setCartCount(0);
-    };
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -71,7 +35,6 @@ export default function Main() {
                         "price-asc":   "price_asc",
                         "price-desc":  "price_desc",
                         "rating-desc": "popular",
-                        "name-asc":    "name_asc"
                     };
                     url += `sort=${sortMap[sortOption]}`;
                 }
@@ -106,7 +69,7 @@ export default function Main() {
                 if (response.ok) {
                     setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
                     setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
-                    fetchCartCount();
+                    refreshCartCount(); // Trigger Header update
                 } else {
                     const errorData = await response.json();
                     console.error("Failed to add to backend cart:", errorData.error);
@@ -133,9 +96,10 @@ export default function Main() {
                     stock:     product.quantity,
                     quantity:  1,
                 });
-                setCartCount((c) => c + 1);
             }
             localStorage.setItem("cart", JSON.stringify(cart));
+            refreshCartCount(); // Trigger Header update
+            
             setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
             setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
         }
@@ -143,8 +107,6 @@ export default function Main() {
 
     return (
         <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
-
-
             {/* ── Main ── */}
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">
 
@@ -162,7 +124,6 @@ export default function Main() {
                         <option value="price-asc">Price ↑</option>
                         <option value="price-desc">Price ↓</option>
                         <option value="rating-desc">Highest Rated</option>
-                        <option value="name-asc">Name: A to Z</option>
                     </select>
                 </div>
 

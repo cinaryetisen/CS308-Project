@@ -3,13 +3,36 @@ import { useState, useEffect } from 'react';
 
 export default function MainLayout() {
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL;
 
     // ── Auth & Dropdown State ───────────────────────────────────────────────
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [userData, setUserData] = useState(null);
+    const [cartCount, setCartCount]       = useState(0);
 
-    // Check for token on component mount
+    // ── Cart Fetching Logic ─────────────────────────────────────────────────
+    const refreshCartCount = async () => {
+        const token = localStorage.getItem("token");
+        if (token) {
+            try {
+                const res = await fetch(`${API_URL}/api/cart`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setCartCount(Array.isArray(data) ? data.reduce((sum, item) => sum + item.quantity, 0) : 0);
+                }
+            } catch (err) {
+                console.error("Failed to fetch cart count", err);
+            }
+        } else {
+            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+            setCartCount(cart.reduce((sum, item) => sum + item.quantity, 0));
+        }
+    };
+
+    // Check for token and fetch initial cart count on component mount
     useEffect(() => {
         const token = localStorage.getItem("token");
         const user = localStorage.getItem("user");
@@ -20,6 +43,7 @@ export default function MainLayout() {
                 setUserData(JSON.parse(user));
             }
         }
+        refreshCartCount(); // Fetch cart immediately on load
     }, []);
 
     // Handle Logout
@@ -31,6 +55,7 @@ export default function MainLayout() {
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
+        setCartCount(0); // Reset cart count on logout
         
         navigate('/login');
     };
@@ -51,31 +76,29 @@ export default function MainLayout() {
                     <Link to="/" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
                         Shop
                     </Link>
-                    <Link to="/shoppingcart" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
-                        Cart
-                    </Link>
                 </div>
 
                 {/* Right Side Icons & Menu */}
                 <div className="flex items-center gap-6">
                     <Link to="/shoppingcart" className="text-2xl hover:scale-110 transition-transform">
-                        🛒
-                    </Link>
+                        🛒 {cartCount > 0 && (
+                                <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+                                    {cartCount > 99 ? "99+" : cartCount}
+                                </span>
+                            )}
+                    </Link> 
                     
                     {/* User Menu / Auth Logic */}
                     {isLoggedIn ? (
                         <div className="relative">
-                            {/* The Menu Button (Replaces your empty w-8 h-8 div) */}
                             <button 
                                 onClick={() => setShowDropdown(!showDropdown)}
                                 className="w-10 h-10 rounded-lg bg-[#342720] text-[#e7b4ff] font-bold flex items-center justify-center border border-[#4e4350] hover:bg-[#40322a] transition focus:outline-none"
                                 title={userData?.name || "Account"}
                             >
-                                {/* Show the first letter of the user's name, or a default 'U' */}
                                 {userData?.name ? userData.name.charAt(0).toUpperCase() : "U"}
                             </button>
 
-                            {/* The Dropdown Panel */}
                             {showDropdown && (
                                 <div className="absolute right-0 mt-3 w-48 bg-[#251912] border border-[#342720] rounded-lg shadow-xl overflow-hidden z-50">
                                     <div className="px-4 py-3 border-b border-[#342720]">
@@ -108,7 +131,6 @@ export default function MainLayout() {
                             )}
                         </div>
                     ) : (
-                        /* Logged Out State: Show Login/Signup */
                         <div className="flex items-center gap-3">
                             <Link to="/login" className="text-sm text-[#d1c5b0] hover:text-[#e7b4ff] transition">
                                 Login
@@ -123,12 +145,9 @@ export default function MainLayout() {
 
             {/* Page Content Injected Here */}
             <main className="flex-1 flex flex-col">
-                <Outlet />
+                {/* Notice we pass the function down via the context prop */}
+                <Outlet context={{ refreshCartCount }} />
             </main>
-
-
-            
-
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+// FIX: Imported useOutletContext
+import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 
 export default function ProductDetail() {
     const { id }   = useParams();
@@ -11,6 +12,9 @@ export default function ProductDetail() {
     const [error, setError]       = useState("");
     const [quantity, setQuantity] = useState(1);
     const [cartMsg, setCartMsg]   = useState(null);
+    
+    // Grab the refresh function from MainLayout
+    const { refreshCartCount } = useOutletContext();
 
     // Auth
     const [isLoggedIn, setIsLoggedIn]     = useState(false);
@@ -141,6 +145,7 @@ export default function ProductDetail() {
                 if (response.ok) {
                     setCartMsg("added");
                     setTimeout(() => setCartMsg(null), 1500);
+                    refreshCartCount(); // FIX: Notify the layout to update the header
                 } else {
                     const errorData = await response.json();
                     console.error("Failed to add to backend cart:", errorData.error);
@@ -173,6 +178,8 @@ export default function ProductDetail() {
             }
 
             localStorage.setItem("cart", JSON.stringify(cart));
+            refreshCartCount(); // FIX: Notify the layout to update the header
+            
             setCartMsg("added");
             setTimeout(() => setCartMsg(null), 1500);
         }
