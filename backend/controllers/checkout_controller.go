@@ -147,7 +147,6 @@ func Checkout(c *gin.Context) {
 	// 7. Fetch the User's details and trigger the background PDF logic
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err == nil {
-
 		go func(u models.User, order models.Order, items []models.OrderItem, pMap map[string]models.Product) {
 			log.Println("Generating PDF Invoice in Memory...")
 
@@ -156,8 +155,6 @@ func Checkout(c *gin.Context) {
 				log.Printf("Error generating PDF: %v\n", err)
 				return
 			}
-
-			log.Println("PDF Generated successfully. Sending email...")
 
 			err = services.SendInvoiceEmail(u.Email, pdfBytes)
 			if err != nil {
@@ -169,9 +166,27 @@ func Checkout(c *gin.Context) {
 		}(user, newOrder, savedOrderItems, productMap)
 	}
 
-	// 8. Instantly send success response to frontend
+	// 8. Build invoice items array to send to frontend for the immediate UI receipt
+	var invoiceItems []gin.H
+	for _, item := range input.CartItems {
+		name := "Unknown Artifact"
+		verifiedPrice := 0.00
+		if p, found := productMap[item.ProductID]; found {
+			name = p.Name
+			verifiedPrice = p.Price
+		}
+		invoiceItems = append(invoiceItems, gin.H{
+			"product_id": item.ProductID,
+			"name":       name,
+			"quantity":   item.Quantity,
+			"price":      verifiedPrice,
+		})
+	}
+
+	// 9. Instantly send success response to frontend
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Order placed successfully! Your receipt is being dispatched.",
-		"order":   newOrder,
+		"message":       "Order placed successfully! Your receipt is being dispatched.",
+		"order":         newOrder,
+		"invoice_items": invoiceItems,
 	})
 }
