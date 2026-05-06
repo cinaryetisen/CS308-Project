@@ -61,21 +61,33 @@ func GetProducts(c *gin.Context) {
 	// 1. Get query parameters from the URL
 	searchQuery := c.Query("search")
 	sortParam := strings.ToLower(c.Query("sort"))
+	categoryParam := c.Query("category")
 
 	// 2. Set up the Aggregation Pipeline
 	pipeline := mongo.Pipeline{}
 
-	// Stage A: Search Filter ($match)
-	filter := bson.M{}
+	// Stage A: Search & Category Filter ($match)
+	var andConditions []bson.M
+
 	if searchQuery != "" {
 		regex := primitive.Regex{Pattern: searchQuery, Options: "i"}
-		filter = bson.M{
+		andConditions = append(andConditions, bson.M{
 			"$or": []bson.M{
 				{"name": bson.M{"$regex": regex}},
 				{"description": bson.M{"$regex": regex}},
 			},
-		}
+		})
 	}
+
+	if categoryParam != "" && categoryParam != "All" {
+		andConditions = append(andConditions, bson.M{"category": categoryParam})
+	}
+
+	filter := bson.M{}
+	if len(andConditions) > 0 {
+		filter["$and"] = andConditions
+	}
+
 	pipeline = append(pipeline, bson.D{{Key: "$match", Value: filter}})
 
 	// Stage B: Calculate TEMPORARY variables for sorting ($addFields)

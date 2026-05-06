@@ -81,6 +81,8 @@ func Checkout(c *gin.Context) {
 		return
 	}
 
+	var savedOrderItems []models.OrderItem
+
 	// 4. Process individual items & Deduct Stock
 	for _, item := range input.CartItems {
 
@@ -102,6 +104,7 @@ func Checkout(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order items"})
 			return
 		}
+		savedOrderItems = append(savedOrderItems, orderItem)
 
 		// ==========================================
 		// ATOMIC CONCURRENCY SHIELD: Deduct Stock
@@ -144,31 +147,46 @@ func Checkout(c *gin.Context) {
 	// 7. Fetch the User's details and trigger the background PDF logic
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err == nil {
+		go func(u models.User, order models.Order, items []models.OrderItem, pMap map[string]models.Product) {
+			log.Println("Generating PDF Invoice in Memory...")
 
-		go func(u models.User, order models.Order, items []models.CartItem, pMap map[string]models.Product) {
-			log.Println("Generating PDF Invoice...")
-
-			pdfPath, err := services.GenerateInvoicePDF(u, order, items, pMap)
+			pdfBytes, err := services.GenerateInvoicePDF(u, order, items, pMap)
 			if err != nil {
 				log.Printf("Error generating PDF: %v\n", err)
 				return
 			}
 
-			log.Println("PDF Generated successfully. Sending email...")
-
-			err = services.SendInvoiceEmail(u.Email, pdfPath)
+			err = services.SendInvoiceEmail(u.Email, pdfBytes)
 			if err != nil {
 				log.Printf("Error sending invoice email: %v\n", err)
 			} else {
 				log.Printf("Invoice successfully sent to %s\n", u.Email)
 			}
 
-		}(user, newOrder, input.CartItems, productMap)
+		}(user, newOrder, savedOrderItems, productMap)
 	}
 
-	// 8. Instantly send success response to frontend
+	// 8. Build invoice items array to send to frontend for the immediate UI receipt
+	var invoiceItems []gin.H
+	for _, item := range input.CartItems {
+		name := "Unknown Artifact"
+		verifiedPrice := 0.00
+		if p, found := productMap[item.ProductID]; found {
+			name = p.Name
+			verifiedPrice = p.Price
+		}
+		invoiceItems = append(invoiceItems, gin.H{
+			"product_id": item.ProductID,
+			"name":       name,
+			"quantity":   item.Quantity,
+			"price":      verifiedPrice,
+		})
+	}
+
+	// 9. Instantly send success response to frontend
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Order placed successfully! Your receipt is being dispatched.",
-		"order":   newOrder,
+		"message":       "Order placed successfully! Your receipt is being dispatched.",
+		"order":         newOrder,
+		"invoice_items": invoiceItems,
 	})
 }
