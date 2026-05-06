@@ -45,6 +45,7 @@ func SetupRouter() *gin.Engine {
 	// Checkout & Orders
 	protected.POST("/checkout", controllers.Checkout)
 	protected.GET("/orders/me", controllers.GetMyOrders)
+	protected.GET("/orders/:id/invoice", controllers.DownloadInvoice)
 
 	//Post review
 	protected.POST("/reviews", controllers.CreateReview)

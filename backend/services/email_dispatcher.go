@@ -8,18 +8,14 @@ import (
 	"os"
 )
 
-func SendInvoiceEmail(recipientEmail string, pdfFilePath string) error {
+func SendInvoiceEmail(recipientEmail string, pdfBytes []byte) error {
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
 	smtpUser := os.Getenv("SMTP_USERNAME")
 	smtpPass := os.Getenv("SMTP_PASSWORD")
 	fromEmail := os.Getenv("SMTP_FROM_EMAIL")
 
-	filedata, err := os.ReadFile(pdfFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read pdf: %v", err)
-	}
-	encodedFile := base64.StdEncoding.EncodeToString(filedata)
+	encodedFile := base64.StdEncoding.EncodeToString(pdfBytes)
 
 	//Construct the Multipart MIME Email
 	boundary := "my-custom-boundary"
@@ -54,10 +50,7 @@ func SendInvoiceEmail(recipientEmail string, pdfFilePath string) error {
 
 	//Authenticate and Send using the Mailtrap Username and Password
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{recipientEmail}, body.Bytes())
-
-	//Clean up the temporary PDF
-	os.Remove(pdfFilePath)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{recipientEmail}, body.Bytes())
 
 	return err
 }

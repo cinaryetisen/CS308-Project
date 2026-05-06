@@ -81,6 +81,8 @@ func Checkout(c *gin.Context) {
 		return
 	}
 
+	var savedOrderItems []models.OrderItem
+
 	// 4. Process individual items & Deduct Stock
 	for _, item := range input.CartItems {
 
@@ -102,6 +104,7 @@ func Checkout(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order items"})
 			return
 		}
+		savedOrderItems = append(savedOrderItems, orderItem)
 
 		// ==========================================
 		// ATOMIC CONCURRENCY SHIELD: Deduct Stock
@@ -145,10 +148,10 @@ func Checkout(c *gin.Context) {
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err == nil {
 
-		go func(u models.User, order models.Order, items []models.CartItem, pMap map[string]models.Product) {
-			log.Println("Generating PDF Invoice...")
+		go func(u models.User, order models.Order, items []models.OrderItem, pMap map[string]models.Product) {
+			log.Println("Generating PDF Invoice in Memory...")
 
-			pdfPath, err := services.GenerateInvoicePDF(u, order, items, pMap)
+			pdfBytes, err := services.GenerateInvoicePDF(u, order, items, pMap)
 			if err != nil {
 				log.Printf("Error generating PDF: %v\n", err)
 				return
@@ -156,14 +159,14 @@ func Checkout(c *gin.Context) {
 
 			log.Println("PDF Generated successfully. Sending email...")
 
-			err = services.SendInvoiceEmail(u.Email, pdfPath)
+			err = services.SendInvoiceEmail(u.Email, pdfBytes)
 			if err != nil {
 				log.Printf("Error sending invoice email: %v\n", err)
 			} else {
 				log.Printf("Invoice successfully sent to %s\n", u.Email)
 			}
 
-		}(user, newOrder, input.CartItems, productMap)
+		}(user, newOrder, savedOrderItems, productMap)
 	}
 
 	// 8. Instantly send success response to frontend
