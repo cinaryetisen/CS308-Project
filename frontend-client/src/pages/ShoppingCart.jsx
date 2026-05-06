@@ -1,24 +1,25 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+
+// FIX: Moved API_URL outside the component so it doesn't trigger unnecessary re-renders
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function ShoppingCart() {
     const navigate = useNavigate();
-    const API_URL  = import.meta.env.VITE_API_URL;
-
+    
+    // Grab the refresh function passed down from MainLayout
+    const { refreshCartCount } = useOutletContext();
     const [isLoggedIn, setIsLoggedIn]       = useState(false);
-    const [showDropdown, setShowDropdown]   = useState(false);
-    const [userData, setUserData]           = useState(null);
     const [cartItems, setCartItems]         = useState([]);
     const [cartLoading, setCartLoading]     = useState(true);
     const [checkoutError, setCheckoutError] = useState("");
 
+    // ── Logic: Fetch Cart ─────────────────────────────────────────────────────
     useEffect(() => {
-        const token      = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
 
         if (token) {
             setIsLoggedIn(true);
-            if (storedUser) setUserData(JSON.parse(storedUser));
 
             // Fetch cart from backend
             setCartLoading(true);
@@ -35,6 +36,7 @@ export default function ShoppingCart() {
                             quantity:  item.quantity,
                             image_url: item.image_url || "",
                             stock:     item.stock || 9999,
+                            category:  item.category || "Product"
                         }))
                     );
                 })
@@ -50,20 +52,9 @@ export default function ShoppingCart() {
             }
             setCartLoading(false);
         }
-    }, []);
+    }, []); 
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("cart");
-        setIsLoggedIn(false);
-        setShowDropdown(false);
-        setUserData(null);
-        setCartItems([]);
-    };
-
-    // ── Update quantity ───────────────────────────────────────────────────────
-    // Backend increments by delta, so we send +1 or -1
+    // ── Logic: Update Quantity ────────────────────────────────────────────────
     const updateQuantity = async (id, newQty) => {
         if (newQty <= 0) { removeItem(id); return; }
 
@@ -76,7 +67,12 @@ export default function ShoppingCart() {
             item.id === id ? { ...item, quantity: newQty } : item
         );
         setCartItems(updated);
-        if (!isLoggedIn) { localStorage.setItem("cart", JSON.stringify(updated)); return; }
+        
+        if (!isLoggedIn) { 
+            localStorage.setItem("cart", JSON.stringify(updated)); 
+            refreshCartCount(); // Notify Layout
+            return; 
+        }
 
         // Sync with backend
         try {
@@ -89,17 +85,23 @@ export default function ShoppingCart() {
                 },
                 body: JSON.stringify({ product_id: id, quantity: delta })
             });
+            refreshCartCount(); // Notify Layout
         } catch (err) {
             console.error("Failed to update quantity:", err);
         }
     };
 
-    // ── Remove item ───────────────────────────────────────────────────────────
+    // ── Logic: Remove Item ────────────────────────────────────────────────────
     const removeItem = async (id) => {
         // Optimistically update UI first
         const updated = cartItems.filter((item) => item.id !== id);
         setCartItems(updated);
-        if (!isLoggedIn) { localStorage.setItem("cart", JSON.stringify(updated)); return; }
+        
+        if (!isLoggedIn) { 
+            localStorage.setItem("cart", JSON.stringify(updated)); 
+            refreshCartCount(); // Notify Layout
+            return; 
+        }
 
         // Sync with backend
         try {
@@ -108,11 +110,14 @@ export default function ShoppingCart() {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
+            refreshCartCount(); // Notify Layout
         } catch (err) {
             console.error("Failed to remove item:", err);
         }
     };
 
+    // ── Logic: Calculations & Checkout ────────────────────────────────────────
+    const totalItems = cartItems.reduce((sum, item) => sum + parseInt(item.quantity || 0, 10), 0);
     const totalCost = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const handleCheckout = () => {
@@ -125,128 +130,145 @@ export default function ShoppingCart() {
         }
     };
 
+    // ── Design: UI Render ─────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-
-            {/* Header */}
-            <header className="w-full bg-white shadow-md relative z-50">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <Link to="/" className="text-2xl font-bold text-gray-800 hover:text-blue-600 transition">MyStore</Link>
-                    <nav className="flex items-center space-x-6">
-                        <Link to="/" className="text-gray-600 hover:text-blue-600 transition font-medium">
-                            &larr; Back to Shop
-                        </Link>
-
-                        {isLoggedIn ? (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowDropdown(!showDropdown)}
-                                    className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition focus:outline-none"
-                                >
-                                    <span className="font-medium">{userData?.name || "My Account"}</span>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {showDropdown && (
-                                    <div className="absolute right-0 mt-3 w-48 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50">
-                                        <div className="px-4 py-3 border-b border-gray-100">
-                                            <p className="text-sm text-gray-500">Signed in as</p>
-                                            <p className="text-sm font-bold text-gray-900 truncate">{userData?.name || "User"}</p>
-                                            <p className="text-xs text-gray-400 truncate mt-0.5">{userData?.email}</p>
-                                        </div>
-                                        <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">Profile</Link>
-                                        <Link to="/orders"  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">My Orders</Link>
-                                        <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">
-                                            Log Out
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <>
-                                <Link to="/login"  className="text-gray-700 hover:text-blue-600 transition">Login</Link>
-                                <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">Sign Up</Link>
-                            </>
-                        )}
-                    </nav>
+        <div className="max-w-screen-xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 w-full">
+            
+            {/* Left: Cart Items */}
+            <div className="lg:col-span-8">
+                
+                {/* Header */}
+                <div className="flex items-baseline justify-between mb-8">
+                    <h1 className="font-headline text-5xl italic tracking-tight text-gray-900 dark:text-[#f5ded3]">
+                        Shopping Cart
+                    </h1>
+                    <span className="font-label text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-[#6d6452] hidden sm:block">
+                        Your Items
+                    </span>
                 </div>
-            </header>
 
-            {/* Cart Content */}
-            <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
-                <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-                    Your Shopping Cart
-                </h2>
-
+                {/* Content Rendering */}
                 {cartLoading ? (
                     <div className="text-center mt-20">
-                        <p className="text-gray-400 text-lg">Loading your cart...</p>
+                        <p className="text-xl text-gray-500 dark:text-[#6d6452] animate-pulse">Loading your cart...</p>
                     </div>
                 ) : cartItems.length === 0 ? (
                     <div className="text-center mt-20">
-                        <p className="text-xl text-gray-500 mb-6">Your cart is currently empty.</p>
-                        <Link to="/" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                            Browse Products
+                        <p className="text-xl text-gray-500 dark:text-[#6d6452] mb-6">Your cart is currently empty.</p>
+                        <Link to="/">
+                            <button className="bg-gradient-to-r from-[#8a47af] to-[#500075] dark:from-[#e7b4ff] dark:to-[#8a47af] text-white dark:text-[#300049] px-8 py-3 rounded-lg font-bold tracking-wider shadow-lg active:scale-95 transition-all duration-150">
+                                Browse Products
+                            </button>
                         </Link>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    /* Parent container with divide-y for borders between items */
+                    <div className="rounded-lg border border-gray-200 dark:border-[#342720] divide-y divide-gray-200 dark:divide-[#342720] bg-white dark:bg-[#160c06] overflow-hidden shadow-sm">
                         {cartItems.map((item) => (
-                            <div
-                                key={item.id}
-                                className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm gap-4"
+                            <div 
+                                key={item.id} 
+                                className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 hover:bg-gray-50 dark:hover:bg-[#251912] transition-colors duration-300"
                             >
-                                <img
-                                    src={item.image_url}
-                                    alt={item.name}
-                                    className="w-16 h-16 object-contain rounded-lg bg-gray-100"
-                                />
-                                <div className="flex-1">
-                                    <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <button
+                                {/* The transparent light-up hover overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 dark:from-[#e7b4ff]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                                
+                                <div className="w-24 h-32 flex-shrink-0 bg-gray-100 dark:bg-[#251912] rounded-sm overflow-hidden z-10 mx-auto sm:mx-0 border border-gray-200 dark:border-[#342720]/50">
+                                    <img 
+                                        className="w-full h-full object-cover" 
+                                        src={item.image_url} 
+                                        alt={item.name} 
+                                    />
+                                </div>
+                                
+                                <div className="flex-grow flex flex-col gap-1 z-10 w-full text-center sm:text-left">
+                                    <span className="font-label text-[10px] uppercase tracking-widest text-green-700 dark:text-[#add461]">
+                                        {typeof item.category === 'object' && item.category !== null ? item.category.name : (item.category || "Product")}
+                                    </span>
+                                    <h3 className="font-headline text-2xl text-gray-900 dark:text-[#f5ded3]">{item.name}</h3>
+                                    
+                                    <button 
+                                        onClick={() => removeItem(item.id)}
+                                        className="text-red-600 hover:text-red-800 dark:text-[#ffb4ab] dark:hover:text-[#ffdad6] text-xs font-bold uppercase tracking-widest mt-2 sm:mt-1 transition-colors self-center sm:self-start"
+                                    >
+                                        Remove Item
+                                    </button>
+                                </div>
+                                
+                                <div className="flex flex-row sm:flex-col items-center sm:items-end gap-6 sm:gap-4 z-10 w-full sm:w-auto justify-between sm:justify-end mt-4 sm:mt-0">
+                                    <div className="flex items-center bg-gray-100 dark:bg-[#342720] rounded px-2 py-1 gap-4 border border-gray-200 dark:border-transparent">
+                                        <button 
                                             onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                            className="w-7 h-7 rounded border border-gray-300 bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                                        >−</button>
-                                        <span className="text-sm font-semibold w-6 text-center">{item.quantity}</span>
-                                        <button
+                                            className="text-purple-700 dark:text-[#e7b4ff] hover:text-gray-900 dark:hover:text-[#f5ded3] transition-colors flex items-center"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">-</span>
+                                        </button>
+                                        <span className="font-bold text-gray-900 dark:text-[#f5ded3] w-4 text-center">
+                                            {item.quantity}
+                                        </span>
+                                        <button 
                                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                            className="w-7 h-7 rounded border border-gray-300 bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                                        >+</button>
+                                            className="text-purple-700 dark:text-[#e7b4ff] hover:text-gray-900 dark:hover:text-[#f5ded3] transition-colors flex items-center"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">+</span>
+                                        </button>
                                     </div>
+                                    <span className="font-headline text-xl text-gray-900 dark:text-[#f5ded3]">
+                                        ${(item.price * item.quantity).toFixed(2)}
+                                    </span>
                                 </div>
-                                <div className="text-lg font-bold text-gray-800 min-w-[70px] text-right">
-                                    ${(item.price * item.quantity).toFixed(2)}
-                                </div>
-                                <button
-                                    onClick={() => removeItem(item.id)}
-                                    className="text-red-400 hover:text-red-600 text-sm font-medium transition"
-                                >
-                                    Remove
-                                </button>
                             </div>
                         ))}
-
-                        <div className="mt-10 bg-white border border-gray-200 rounded-xl p-6 flex flex-col items-end shadow-sm">
-                            <h3 className="text-xl text-gray-600 mb-2">Total</h3>
-                            <p className="text-3xl font-bold text-gray-800 mb-6">${totalCost.toFixed(2)}</p>
-                            {checkoutError && (
-                                <div className="w-full text-center px-4 py-3 mb-4 text-sm text-red-700 bg-red-100 border border-red-300 rounded-md">
-                                    {checkoutError}
-                                </div>
-                            )}
-                            <button
-                                onClick={handleCheckout}
-                                className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition shadow-md text-lg font-bold"
-                            >
-                                Proceed to Payment
-                            </button>
-                        </div>
                     </div>
                 )}
-            </main>
+            </div>
+
+            {/* Right: Order Summary Sticky */}
+            {cartItems.length > 0 && !cartLoading && (
+                <aside className="lg:col-span-4">
+                    <div className="sticky top-28 bg-white dark:bg-[#160c06] p-8 rounded-lg border border-gray-200 dark:border-[#342720] shadow-sm dark:shadow-[0_40px_60px_-15px_rgba(22,12,6,0.6)]">
+                        <h2 className="font-headline text-3xl mb-8 border-b border-gray-200 dark:border-[#342720] pb-4 text-gray-900 dark:text-[#f5ded3]">Order Summary</h2>
+                        
+                        <div className="space-y-4 font-body text-sm text-gray-500 dark:text-[#6d6452] mb-12">
+                            <div className="flex justify-between">
+                                <span>Subtotal ({totalItems} items)</span>
+                                <span className="text-gray-900 dark:text-[#f5ded3]">${totalCost.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-center mb-10 gap-2">
+                            <span className="font-label text-xs tracking-widest text-green-700 dark:text-[#add461] uppercase">Total</span>
+                            <span className="font-headline text-5xl xl:text-6xl font-bold text-gray-900 dark:text-[#f5ded3] drop-shadow-sm">
+                                ${totalCost.toFixed(2)}
+                            </span>
+                        </div>
+
+                        {checkoutError && (
+                            <div className="w-full text-center px-4 py-3 mb-6 text-sm text-white bg-red-600 dark:bg-[#93000a] rounded-md shadow-sm">
+                                {checkoutError}
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-4">
+                            <button 
+                                onClick={handleCheckout}
+                                className="bg-gradient-to-r from-[#8a47af] to-[#500075] dark:from-[#e7b4ff] dark:to-[#8a47af] text-white dark:text-[#300049] w-full py-4 font-bold text-lg rounded-lg shadow-lg hover:brightness-110 active:scale-95 transition-all duration-150"
+                            >
+                                Proceed to Checkout
+                            </button>
+                            <Link to="/">
+                                <button className="active:scale-95 w-full py-4 bg-transparent border border-gray-300 dark:border-[#342720] text-gray-600 dark:text-[#6d6452] font-medium text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-[#251912] hover:text-purple-700 dark:hover:text-[#e7b4ff] transition-all duration-150">
+                                    Continue Shopping
+                                </button>
+                            </Link>
+                        </div>
+
+                        <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-[#6d6452]">
+                            <span className="material-symbols-outlined text-sm">verified_user</span>
+                            <span>Transactions are 100% secure and encrypted</span>
+                        </div>
+                    </div>
+                </aside>
+            )}
         </div>
     );
 }
