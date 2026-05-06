@@ -15,7 +15,10 @@ export default function Sidebar() {
 
       <nav className="flex flex-col gap-2 text-sm">
 
-        <Link to="/"className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg">
+        <Link
+          to="/"
+          className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg"
+        >
           Shop
         </Link>
 
