@@ -9,8 +9,7 @@ import MyOrders from "./pages/MyOrders";
 import Payment from './pages/Payment';
 import PMLayout from "./pages/product-manager/PMLayout";
 import DeliveryManager from "./pages/product-manager/DeliveryManager";
-
-
+import ReviewManager from "./pages/product-manager/ReviewManager";
 
 function App() {
   return (
@@ -26,6 +25,7 @@ function App() {
         <Route path="/payment" element={<Payment />} />
         <Route path="/pm" element={<PMLayout />}>
           <Route path="deliveries" element={<DeliveryManager />} />
+          <Route path="reviews" element={<ReviewManager />} />
         </Route>
       </Routes>
     </BrowserRouter>

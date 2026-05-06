@@ -13,11 +13,11 @@ function getTokenPayload() {
 
 const NAV_LINKS = [
     { to: "/pm/deliveries", label: "📦 Deliveries" },
-    // Add future PM pages here
+    { to: "/pm/reviews",    label: "💬 Reviews" },
 ];
 
 export default function PMLayout() {
-    const [checking, setChecking] = useState(true);
+    const [checking, setChecking]     = useState(true);
     const [authorized, setAuthorized] = useState(false);
     const navigate = useNavigate();
 
