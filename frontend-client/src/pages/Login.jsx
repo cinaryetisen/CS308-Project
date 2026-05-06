@@ -57,13 +57,25 @@ export default function Login() {
           });
         } catch (mergeErr) {
           console.error("Cart merge failed:", mergeErr);
-          // Non-fatal — continue login regardless
         }
       }
       localStorage.removeItem("cart");
 
       setSuccess(true);
-      setTimeout(() => navigate("/"), 1500);
+
+      // Decode token to check role and redirect accordingly
+      try {
+        const payload = JSON.parse(atob(data.token.split(".")[1]));
+        setTimeout(() => {
+          if (payload.role === "product_manager") {
+            navigate("/pm/deliveries");
+          } else {
+            navigate("/");
+          }
+        }, 1500);
+      } catch {
+        setTimeout(() => navigate("/"), 1500);
+      }
 
     } catch (err) {
       console.error(err);
