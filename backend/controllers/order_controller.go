@@ -15,7 +15,7 @@ import (
 func GetDeliveryList(c *gin.Context) {
 	var orders []models.Order
 
-	if err := config.DB.Find(&orders).Error; err != nil {
+	if err := config.DB.Preload("Items").Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch deliveries"})
 		return
 	}
@@ -76,7 +76,7 @@ func GetMyOrders(c *gin.Context) {
 
 	var orders []models.Order
 
-	if err := config.DB.Where("customer_id = ?", userID).Find(&orders).Error; err != nil {
+	if err := config.DB.Preload("Items").Where("customer_id = ?", userID).Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your orders"})
 		return
 	}
