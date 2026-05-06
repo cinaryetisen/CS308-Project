@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"time"
 
@@ -61,6 +62,25 @@ func CreateReview(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit review"})
 		return
+	}
+
+	productsCollection := config.MongoClient.Database("medieval_store").Collection("products")
+	var product models.Product
+	if err := productsCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err == nil {
+		newCount := product.ReviewCount + 1
+		rawRating := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
+
+		// Fix to 2 decimal places
+		newRating := math.Round(rawRating*100) / 100
+
+		productsCollection.UpdateOne(
+			context.Background(),
+			bson.M{"_id": objID},
+			bson.M{"$set": bson.M{
+				"rating":       newRating,
+				"review_count": newCount,
+			}},
+		)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Review submitted successfully and is awaiting moderation."})
@@ -157,25 +177,6 @@ func ModerateReview(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Review not found or already processed"})
 		return
-	}
-
-	if newStatus == "approved" {
-		productsCollection := config.MongoClient.Database("medieval_store").Collection("products")
-
-		var product models.Product
-		if err := productsCollection.FindOne(ctx, bson.M{"_id": updatedReview.ProductID}).Decode(&product); err == nil {
-			newCount := product.ReviewCount + 1
-			newRating := ((product.Rating * float64(product.ReviewCount)) + float64(updatedReview.Rating)) / float64(newCount)
-
-			productsCollection.UpdateOne(
-				ctx,
-				bson.M{"_id": updatedReview.ProductID},
-				bson.M{"$set": bson.M{
-					"rating":       newRating,
-					"review_count": newCount,
-				}},
-			)
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Review " + newStatus + " successfully"})
