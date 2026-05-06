@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"math"
 	"net/http"
 	"time"
 
@@ -68,10 +67,7 @@ func CreateReview(c *gin.Context) {
 	var product models.Product
 	if err := productsCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err == nil {
 		newCount := product.ReviewCount + 1
-		rawRating := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
-
-		// Fix to 2 decimal places
-		newRating := math.Round(rawRating*100) / 100
+		newRating := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
 
 		productsCollection.UpdateOne(
 			context.Background(),
