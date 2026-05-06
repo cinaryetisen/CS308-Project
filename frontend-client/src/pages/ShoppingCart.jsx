@@ -131,7 +131,7 @@ export default function ShoppingCart() {
             {/* Header */}
             <header className="w-full bg-white shadow-md relative z-50">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-800">MyStore</h1>
+                    <Link to="/" className="text-2xl font-bold text-gray-800 hover:text-blue-600 transition">MyStore</Link>
                     <nav className="flex items-center space-x-6">
                         <Link to="/" className="text-gray-600 hover:text-blue-600 transition font-medium">
                             &larr; Back to Shop
