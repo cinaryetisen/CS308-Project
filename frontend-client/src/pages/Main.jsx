@@ -44,10 +44,9 @@ export default function Main() {
             });
             if (!res.ok) return;
             const data = await res.json();
-            // data is an array of cart items — count unique product types
             setCartCount(Array.isArray(data) ? data.length : 0);
         } catch {
-            // silently fail — badge just won't show
+            // silently fail
         }
     }
 
@@ -89,7 +88,7 @@ export default function Main() {
         fetchProducts();
     }, [API_URL, searchQuery, sortOption]);
 
-    // ── Add to Cart ───────────────────────────────────────────────────────────
+    // Add to Cart
     const addToCart = async (e, product) => {
         e.stopPropagation();
         if (product.quantity === 0) return;
@@ -109,7 +108,6 @@ export default function Main() {
                 if (response.ok) {
                     setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
                     setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
-                    // Refresh count from backend to stay in sync
                     fetchCartCount();
                 } else {
                     const errorData = await response.json();
@@ -138,7 +136,6 @@ export default function Main() {
                     stock:     product.quantity,
                     quantity:  1,
                 });
-                // Only increment count when a new product type is added
                 setCartCount((c) => c + 1);
             }
 
@@ -154,9 +151,9 @@ export default function Main() {
             {/* Header */}
             <header className="w-full bg-white shadow-md relative z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex-shrink-0">
+                    <Link to="/" className="text-xl sm:text-2xl font-bold text-gray-800 flex-shrink-0 hover:text-blue-600 transition">
                         MyStore
-                    </h1>
+                    </Link>
                     <div className="flex-1">
                         <input
                             type="text"
@@ -167,7 +164,6 @@ export default function Main() {
                         />
                     </div>
                     <nav className="flex items-center space-x-3 sm:space-x-6 flex-shrink-0">
-                        {/* Cart icon with badge */}
                         <Link to="/shoppingcart" className="relative text-gray-700 hover:text-blue-600 transition text-sm sm:text-base">
                             🛒 <span className="hidden sm:inline">Cart</span>
                             {cartCount > 0 && (
