@@ -11,6 +11,7 @@ export default function ProductDetail() {
     const [error, setError]       = useState("");
     const [quantity, setQuantity] = useState(1);
     const [cartMsg, setCartMsg]   = useState(null);
+    const [cartCount, setCartCount] = useState(0);
 
     // Auth
     const [isLoggedIn, setIsLoggedIn]     = useState(false);
@@ -36,6 +37,30 @@ export default function ProductDetail() {
         }
     }, []);
 
+    // Fetch initial cart count
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchCartCount();
+        } else {
+            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+            setCartCount(cart.length);
+        }
+    }, [isLoggedIn]);
+
+    async function fetchCartCount() {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/api/cart`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            setCartCount(Array.isArray(data) ? data.length : 0);
+        } catch {
+            // silently fail
+        }
+    }
+
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -43,6 +68,7 @@ export default function ProductDetail() {
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
+        setCartCount(0);
     };
 
     // Fetch single product
@@ -141,6 +167,7 @@ export default function ProductDetail() {
                 if (response.ok) {
                     setCartMsg("added");
                     setTimeout(() => setCartMsg(null), 1500);
+                    fetchCartCount();
                 } else {
                     const errorData = await response.json();
                     console.error("Failed to add to backend cart:", errorData.error);
@@ -170,6 +197,7 @@ export default function ProductDetail() {
                     stock:     product.quantity,
                     quantity:  Math.min(quantity, product.quantity),
                 });
+                setCartCount((c) => c + 1);
             }
 
             localStorage.setItem("cart", JSON.stringify(cart));
@@ -222,8 +250,14 @@ export default function ProductDetail() {
                     </Link>
                     <div className="flex-1" />
                     <nav className="flex items-center space-x-3 sm:space-x-6 flex-shrink-0">
-                        <Link to="/shoppingcart" className="text-gray-700 hover:text-blue-600 text-sm sm:text-base">
+                        {/* Cart icon with badge */}
+                        <Link to="/shoppingcart" className="relative text-gray-700 hover:text-blue-600 text-sm sm:text-base">
                             🛒 <span className="hidden sm:inline">Cart</span>
+                            {cartCount > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                                    {cartCount > 99 ? "99+" : cartCount}
+                                </span>
+                            )}
                         </Link>
                         {isLoggedIn ? (
                             <div className="relative">
@@ -382,12 +416,9 @@ export default function ProductDetail() {
                         )}
                     </h2>
 
-                    {/* Submit Review Form — only for logged-in users */}
                     {isLoggedIn ? (
                         <div className="border border-gray-200 rounded-xl p-5 flex flex-col gap-4 bg-gray-50">
                             <h3 className="text-sm font-semibold text-gray-700">Write a Review</h3>
-
-                            {/* Star Picker */}
                             <div className="flex items-center gap-1">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                     <button
@@ -409,8 +440,6 @@ export default function ProductDetail() {
                                     </span>
                                 )}
                             </div>
-
-                            {/* Comment */}
                             <textarea
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
@@ -418,10 +447,8 @@ export default function ProductDetail() {
                                 rows={3}
                                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
-
                             {reviewError && <p className="text-sm text-red-600">{reviewError}</p>}
                             {submitMsg  && <p className="text-sm text-green-600">✓ {submitMsg}</p>}
-
                             <button
                                 onClick={handleSubmitReview}
                                 disabled={submitting}
@@ -437,7 +464,6 @@ export default function ProductDetail() {
                         </div>
                     )}
 
-                    {/* Reviews List */}
                     {reviewsLoading ? (
                         <p className="text-sm text-gray-400">Loading reviews...</p>
                     ) : reviews.length === 0 ? (
