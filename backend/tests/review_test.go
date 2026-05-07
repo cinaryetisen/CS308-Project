@@ -169,7 +169,6 @@ func TestModerateReview_Approve(t *testing.T) {
 	res, _ := collection.InsertOne(context.Background(), models.Review{
 		Comment: "Awesome shield!",
 		Status:  "pending",
-		Rating:  5,
 	})
 	reviewID := res.InsertedID.(primitive.ObjectID).Hex()
 
