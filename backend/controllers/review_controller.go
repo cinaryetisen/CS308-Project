@@ -19,7 +19,6 @@ func CreateReview(c *gin.Context) {
 
 	var input struct {
 		ProductID string `json:"product_id" binding:"required"`
-		Rating    int    `json:"rating" binding:"required,min=1,max=5"`
 		Comment   string `json:"comment" binding:"required"`
 	}
 
@@ -50,7 +49,6 @@ func CreateReview(c *gin.Context) {
 		ProductID: objID,
 		UserID:    userID,
 		UserName:  user.Name,
-		Rating:    input.Rating,
 		Comment:   input.Comment,
 		Status:    "pending", // Product Manager must approve this!
 		CreatedAt: time.Now(),
@@ -61,22 +59,6 @@ func CreateReview(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit review"})
 		return
-	}
-
-	productsCollection := config.MongoClient.Database("medieval_store").Collection("products")
-	var product models.Product
-	if err := productsCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err == nil {
-		newCount := product.ReviewCount + 1
-		newRating := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
-
-		productsCollection.UpdateOne(
-			context.Background(),
-			bson.M{"_id": objID},
-			bson.M{"$set": bson.M{
-				"rating":       newRating,
-				"review_count": newCount,
-			}},
-		)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Review submitted successfully and is awaiting moderation."})
