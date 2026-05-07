@@ -12,7 +12,16 @@ export default function Main() {
     const [loading, setLoading]           = useState(true);
     const [sortOption, setSortOption]     = useState("default");
     const [searchQuery, setSearchQuery]   = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [cartFeedback, setCartFeedback] = useState({});
+
+    // Wait 300ms after the user stops typing before setting the actual search term
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer); // Cleanup if they keep typing
+    }, [searchQuery]);
 
     // Auth state
     const [isLoggedIn, setIsLoggedIn]     = useState(false);
@@ -29,7 +38,7 @@ export default function Main() {
             setLoading(true);
             try {
                 let url = `${API_URL}/api/products?`;
-                if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
+                if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`; 
                 if (sortOption !== "default") {
                     const sortMap = {
                         "price-asc":   "price_asc",
@@ -48,7 +57,7 @@ export default function Main() {
             }
         };
         fetchProducts();
-    }, [API_URL, searchQuery, sortOption]);
+    }, [API_URL, debouncedSearch, sortOption]);
 
     // Add to Cart
     const addToCart = async (e, product) => {
@@ -115,16 +124,27 @@ export default function Main() {
                     <h2 className="text-4xl font-serif text-[#f5ded3]">
                         The Vault of Essence
                     </h2>
-                    <select
-                        value={sortOption}
-                        onChange={(e) => setSortOption(e.target.value)}
-                        className="bg-[#251912] border border-[#342720] px-3 py-2 rounded text-sm text-[#f5ded3] focus:outline-none focus:border-[#e7b4ff] transition-colors"
-                    >
-                        <option value="default">Featured</option>
-                        <option value="price-asc">Price ↑</option>
-                        <option value="price-desc">Price ↓</option>
-                        <option value="rating-desc">Highest Rated</option>
-                    </select>
+                    
+                    {/* Search & Sort Controls */}
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                        <input
+                            type="text"
+                            placeholder="Search artifacts..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full sm:w-64 bg-[#251912] border border-[#342720] px-4 py-2 rounded text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                        />
+                        <select
+                            value={sortOption}
+                            onChange={(e) => setSortOption(e.target.value)}
+                            className="w-full sm:w-auto bg-[#251912] border border-[#342720] px-3 py-2 rounded text-sm text-[#f5ded3] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                        >
+                            <option value="default">Featured</option>
+                            <option value="price-asc">Price ↑</option>
+                            <option value="price-desc">Price ↓</option>
+                            <option value="rating-desc">Highest Rated</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Product Grid */}
