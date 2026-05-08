@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 export default function Payment() {
     const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
-    
-    // ── THE FIX: Grab the refresh function passed down from the layout ──
+
+    // Grab the refresh function passed down from the layout
     const { refreshCartCount } = useOutletContext();
 
     const [isProcessing, setIsProcessing]   = useState(false);
@@ -25,15 +25,25 @@ export default function Payment() {
     // ── Formatters ────────────────────────────────────────────────────────────
 
     const handleCardNumber = (e) => {
-        // Strip everything except digits, then insert a space every 4 digits
         const digits = e.target.value.replace(/\D/g, "").slice(0, 16);
         const formatted = digits.replace(/(.{4})/g, "$1 ").trim();
         setCardNumber(formatted);
     };
 
     const handleExpiry = (e) => {
-        // Strip non-digits, format as MM/YY
-        const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+        let digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+
+        // If first digit is 2–9, auto-pad to 0X (e.g. 3 → 03)
+        if (digits.length === 1 && parseInt(digits, 10) > 1) {
+            digits = "0" + digits;
+        }
+
+        // Clamp month to 01–12
+        if (digits.length >= 2) {
+            const month = parseInt(digits.slice(0, 2), 10);
+            if (month < 1 || month > 12) return;
+        }
+
         const formatted = digits.length > 2
             ? `${digits.slice(0, 2)}/${digits.slice(2)}`
             : digits;
@@ -41,8 +51,7 @@ export default function Payment() {
     };
 
     const handleCvc = (e) => {
-        // Digits only, max 4
-        setCvc(e.target.value.replace(/\D/g, "").slice(0, 4));
+        setCvc(e.target.value.replace(/\D/g, "").slice(0, 3));
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
@@ -93,12 +102,12 @@ export default function Payment() {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Payment failed to process.");
 
-            // ── THE FIX: Clear local storage AND trigger header refresh ──
+            // Clear local storage and trigger header refresh
             localStorage.removeItem("cart");
-            if (refreshCartCount) refreshCartCount(); 
+            if (refreshCartCount) refreshCartCount();
 
-            alert("Order placed successfully! Your invoice is being dispatched to your email.");
-            navigate("/");
+            // ── F4: Navigate to invoice page instead of alert ──
+            navigate(`/invoice/${data.order.delivery_id}`, { state: { order: data.order } });
 
         } catch (error) {
             console.error("Checkout Error:", error);
@@ -198,7 +207,7 @@ export default function Payment() {
                                 value={cvc}
                                 onChange={handleCvc}
                                 placeholder="123"
-                                maxLength="4"
+                                maxLength="3"
                                 className={`${inputClass} text-center`}
                             />
                         </div>
