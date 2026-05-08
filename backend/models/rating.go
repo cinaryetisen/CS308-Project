@@ -18,4 +18,5 @@ type Rating struct {
 	Rating int `bson:"rating" json:"rating"` // e.g., 1 through 5
 
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
