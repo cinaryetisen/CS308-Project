@@ -51,6 +51,7 @@ func SetupRouter() *gin.Engine {
 	//Post review
 	protected.POST("/reviews", controllers.CreateReview)
 	protected.POST("/ratings", controllers.CreateRating)
+	protected.GET("/me/ratings/:productId", controllers.GetMyRatingForProduct)
 
 	//Product manager routes
 	product_manager := router.Group("/api", security.AuthMiddleware(), security.Authorize("product_manager"))

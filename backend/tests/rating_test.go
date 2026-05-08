@@ -31,6 +31,7 @@ func setupRatingRouter() *gin.Engine {
 	protected := router.Group("/api")
 	protected.Use(security.AuthMiddleware())
 	protected.POST("/ratings", controllers.CreateRating)
+	protected.GET("/me/ratings/:productId", controllers.GetMyRatingForProduct)
 
 	return router
 }
@@ -235,9 +236,8 @@ func TestCreateRating_Unauthorized(t *testing.T) {
 
 func TestCreateRating_DifferentUsersStack(t *testing.T) {
 	// Two distinct users each rate the product once. Both ratings count;
-	// the running average reflects both. (Single-user idempotency — i.e. the same
-	// user updating their own rating instead of creating a duplicate — is not yet
-	// enforced; that's a separate planned change.)
+	// the running average reflects both. The unique (product_id, user_id) index
+	// only blocks duplicates from the SAME user — different users may stack freely.
 	setupTestDB()
 	ensureMongo()
 	defer clearTestDB()
@@ -284,6 +284,235 @@ func TestCreateRating_DifferentUsersStack(t *testing.T) {
 	ratingsCollection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
 	count, _ := ratingsCollection.CountDocuments(context.Background(), bson.M{"product_id": productID})
 	assert.Equal(t, int64(2), count)
+}
+
+// ==========================================
+// UPSERT (SAME USER, SAME PRODUCT) TESTS
+// ==========================================
+
+func TestCreateRating_UpdateExisting(t *testing.T) {
+	// Same user submits a second rating for the same product. The first should be
+	// updated in place: ratings collection still has 1 doc, review_count unchanged,
+	// running average reflects the replacement (not an append).
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	productsCollection.InsertOne(context.Background(), models.Product{
+		ID:          productID,
+		Name:        "Steel Kite Shield",
+		Rating:      0,
+		ReviewCount: 0,
+	})
+
+	seedDeliveredOrder(1, "Arthur", 1, productID.Hex())
+
+	router := setupRatingRouter()
+
+	submit := func(rating int) *httptest.ResponseRecorder {
+		body, _ := json.Marshal(map[string]interface{}{
+			"product_id": productID.Hex(),
+			"rating":     rating,
+		})
+		req, _ := http.NewRequest("POST", "/api/ratings", bytes.NewBuffer(body))
+		req.Header.Set("Authorization", getTestToken(1, "customer"))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
+
+	// First submission — insert path, 201.
+	first := submit(5)
+	assert.Equal(t, http.StatusCreated, first.Code)
+
+	var afterInsert models.Product
+	productsCollection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&afterInsert)
+	assert.Equal(t, 1, afterInsert.ReviewCount)
+	assert.InDelta(t, 5.0, afterInsert.Rating, 0.001)
+
+	// Second submission, same user — update path, 200.
+	second := submit(1)
+	assert.Equal(t, http.StatusOK, second.Code)
+	assert.Contains(t, second.Body.String(), "Rating updated")
+
+	// Running average reflects replacement: (5*1 - 5 + 1) / 1 = 1.0; review_count still 1.
+	var afterUpdate models.Product
+	productsCollection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&afterUpdate)
+	assert.Equal(t, 1, afterUpdate.ReviewCount)
+	assert.InDelta(t, 1.0, afterUpdate.Rating, 0.001)
+
+	// Ratings collection still contains exactly one rating doc for this user/product,
+	// and its value is the most recent submission.
+	ratingsCollection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
+	count, _ := ratingsCollection.CountDocuments(context.Background(), bson.M{"product_id": productID, "user_id": uint(1)})
+	assert.Equal(t, int64(1), count)
+
+	var savedRating models.Rating
+	ratingsCollection.FindOne(context.Background(), bson.M{"product_id": productID, "user_id": uint(1)}).Decode(&savedRating)
+	assert.Equal(t, 1, savedRating.Rating)
+	assert.False(t, savedRating.UpdatedAt.IsZero(), "UpdatedAt should be set after an update")
+}
+
+func TestCreateRating_UpdateAfterMultipleUsers(t *testing.T) {
+	// Two users have rated the product. One of them updates their rating.
+	// The running average must reflect the replaced contribution while review_count holds at 2.
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	productsCollection.InsertOne(context.Background(), models.Product{
+		ID:          productID,
+		Name:        "Mithril Chestplate",
+		Rating:      0,
+		ReviewCount: 0,
+	})
+
+	seedDeliveredOrder(1, "Arthur", 1, productID.Hex())
+	seedDeliveredOrder(2, "Bedivere", 2, productID.Hex())
+
+	router := setupRatingRouter()
+
+	submit := func(userID uint, rating int) int {
+		body, _ := json.Marshal(map[string]interface{}{
+			"product_id": productID.Hex(),
+			"rating":     rating,
+		})
+		req, _ := http.NewRequest("POST", "/api/ratings", bytes.NewBuffer(body))
+		req.Header.Set("Authorization", getTestToken(userID, "customer"))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	assert.Equal(t, http.StatusCreated, submit(1, 5))
+	assert.Equal(t, http.StatusCreated, submit(2, 3))
+	// avg now (5+3)/2 = 4.0, count = 2
+
+	// Arthur changes his mind: 5 → 1.
+	assert.Equal(t, http.StatusOK, submit(1, 1))
+
+	// New running average: (4.0 * 2 - 5 + 1) / 2 = 4 / 2 = 2.0; count still 2.
+	var product models.Product
+	productsCollection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&product)
+	assert.Equal(t, 2, product.ReviewCount)
+	assert.InDelta(t, 2.0, product.Rating, 0.001)
+
+	// Still exactly 2 rating documents.
+	ratingsCollection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
+	total, _ := ratingsCollection.CountDocuments(context.Background(), bson.M{"product_id": productID})
+	assert.Equal(t, int64(2), total)
+}
+
+// ==========================================
+// GET MY RATING FOR PRODUCT TESTS
+// ==========================================
+
+func TestGetMyRatingForProduct_NotFound(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+
+	productID := primitive.NewObjectID()
+
+	router := setupRatingRouter()
+	req, _ := http.NewRequest("GET", "/api/me/ratings/"+productID.Hex(), nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// No rating exists → frontend should treat 404 as "no pre-fill".
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetMyRatingForProduct_Found(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
+	collection.InsertOne(context.Background(), models.Rating{
+		ProductID: productID,
+		UserID:    1,
+		UserName:  "Arthur",
+		Rating:    4,
+	})
+
+	router := setupRatingRouter()
+	req, _ := http.NewRequest("GET", "/api/me/ratings/"+productID.Hex(), nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &body)
+	assert.Equal(t, float64(4), body["rating"]) // JSON numbers decode as float64
+}
+
+func TestGetMyRatingForProduct_OnlyReturnsOwnRating(t *testing.T) {
+	// User A has a rating; user B asks for THEIR rating on the same product. B should get 404
+	// — we never expose someone else's rating through this endpoint.
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
+	collection.InsertOne(context.Background(), models.Rating{
+		ProductID: productID,
+		UserID:    1, // Arthur
+		Rating:    4,
+	})
+
+	router := setupRatingRouter()
+	req, _ := http.NewRequest("GET", "/api/me/ratings/"+productID.Hex(), nil)
+	req.Header.Set("Authorization", getTestToken(2, "customer")) // Bedivere
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetMyRatingForProduct_Unauthorized(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("ratings")
+
+	router := setupRatingRouter()
+	req, _ := http.NewRequest("GET", "/api/me/ratings/"+primitive.NewObjectID().Hex(), nil)
+	// No Authorization header
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetMyRatingForProduct_InvalidID(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+
+	router := setupRatingRouter()
+	req, _ := http.NewRequest("GET", "/api/me/ratings/not-a-real-id", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 // ==========================================

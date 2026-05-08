@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -38,5 +39,20 @@ func ConnectMongo() error {
 
 	MongoClient = client
 	log.Println("Successfully connected to MongoDB!")
+
+	// Ensure (product_id, user_id) is unique on ratings — at most one rating per
+	// user per product. CreateOne is idempotent: if the index already exists it
+	// no-ops; if duplicate documents already exist, it errors here so we log it
+	// rather than silently letting the invariant break.
+	idxCtx, idxCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer idxCancel()
+	_, idxErr := client.Database(MongoDBName).Collection("ratings").Indexes().CreateOne(idxCtx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "product_id", Value: 1}, {Key: "user_id", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName("uniq_product_user"),
+	})
+	if idxErr != nil {
+		log.Printf("Warning: failed to ensure unique ratings index: %v\n", idxErr)
+	}
+
 	return nil
 }
