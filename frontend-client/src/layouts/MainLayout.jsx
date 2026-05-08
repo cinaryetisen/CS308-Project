@@ -56,7 +56,7 @@ export default function MainLayout() {
         setUserData(null);
         setCartCount(0);
         
-        navigate('/login');
+        navigate('/');
     };
 
     return (
