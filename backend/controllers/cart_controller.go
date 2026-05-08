@@ -105,6 +105,9 @@ func GetCart(c *gin.Context) {
 				Price:     p.Price,
 				Quantity:  item.Quantity,
 				Subtotal:  float64(item.Quantity) * p.Price,
+				ImageURL:  p.ImageURL,
+				Stock:     p.Quantity,
+				Category:  p.Category,
 			})
 		}
 	}
