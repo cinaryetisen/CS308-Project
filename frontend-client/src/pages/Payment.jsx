@@ -1,9 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
 export default function Payment() {
     const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
+    
+    // ── THE FIX: Grab the refresh function passed down from the layout ──
+    const { refreshCartCount } = useOutletContext();
 
     const [isProcessing, setIsProcessing]   = useState(false);
     const [checkoutError, setCheckoutError] = useState("");
@@ -90,7 +93,10 @@ export default function Payment() {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Payment failed to process.");
 
+            // ── THE FIX: Clear local storage AND trigger header refresh ──
             localStorage.removeItem("cart");
+            if (refreshCartCount) refreshCartCount(); 
+
             alert("Order placed successfully! Your invoice is being dispatched to your email.");
             navigate("/");
 
