@@ -60,6 +60,12 @@ export default function ShoppingCart() {
 
         const currentItem = cartItems.find((item) => item.id === id);
         if (!currentItem) return;
+
+        // --- NEW: Check against available stock ---
+        if (newQty > currentItem.stock) {
+            return; 
+        }
+
         const delta = newQty - currentItem.quantity;
 
         // Optimistically update UI first
@@ -204,9 +210,16 @@ export default function ShoppingCart() {
                                         <span className="font-bold text-gray-900 dark:text-[#f5ded3] w-4 text-center">
                                             {item.quantity}
                                         </span>
+                                        {/* --- NEW: Updated + button with stock limits --- */}
                                         <button 
                                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                            className="text-purple-700 dark:text-[#e7b4ff] hover:text-gray-900 dark:hover:text-[#f5ded3] transition-colors flex items-center"
+                                            disabled={item.quantity >= item.stock}
+                                            title={item.quantity >= item.stock ? "Maximum stock reached" : "Increase quantity"}
+                                            className={`transition-colors flex items-center ${
+                                                item.quantity >= item.stock 
+                                                    ? "text-gray-300 dark:text-[#342720] cursor-not-allowed" 
+                                                    : "text-purple-700 dark:text-[#e7b4ff] hover:text-gray-900 dark:hover:text-[#f5ded3]"
+                                            }`}
                                         >
                                             <span className="material-symbols-outlined text-lg">+</span>
                                         </button>
