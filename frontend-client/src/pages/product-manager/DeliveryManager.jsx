@@ -17,14 +17,52 @@ function StatusBadge({ status }) {
     const label = status.charAt(0).toUpperCase() + status.slice(1);
     return (
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${style}`}>
-      {label}
-    </span>
+            {label}
+        </span>
     );
 }
 
-function DeliveryCard({ order, onStatusUpdate }) {
+function ItemsTable({ items, productMap }) {
+    if (!items || items.length === 0) {
+        return <p className="text-sm text-gray-400 px-5 py-4 italic">No item details available.</p>;
+    }
+    return (
+        <table className="w-full text-sm border-t border-gray-100">
+            <thead>
+            <tr className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
+                <th className="text-left px-5 py-2.5 font-semibold">Product</th>
+                <th className="text-center px-5 py-2.5 font-semibold">Qty</th>
+                <th className="text-right px-5 py-2.5 font-semibold">Unit Price</th>
+                <th className="text-right px-5 py-2.5 font-semibold">Subtotal</th>
+            </tr>
+            </thead>
+            <tbody>
+            {items.map((item) => {
+                const product = productMap[item.product_id];
+                return (
+                    <tr key={item.id} className="border-t border-gray-100">
+                        <td className="px-5 py-3">
+                            {product
+                                ? <span className="text-gray-800 font-medium">{product.name}</span>
+                                : <span className="text-gray-400 italic text-xs">{item.product_id}</span>
+                            }
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 text-center">{item.quantity}</td>
+                        <td className="px-5 py-3 text-gray-600 text-right">${item.price.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-gray-900 font-semibold text-right">
+                            ${(item.price * item.quantity).toFixed(2)}
+                        </td>
+                    </tr>
+                );
+            })}
+            </tbody>
+        </table>
+    );
+}
+
+function DeliveryCard({ order, onStatusUpdate, productMap }) {
     const [selected, setSelected] = useState(order.status);
-    const [saving, setSaving] = useState(false);
+    const [saving, setSaving]     = useState(false);
     const [feedback, setFeedback] = useState(null);
     const [expanded, setExpanded] = useState(false);
 
@@ -68,26 +106,26 @@ function DeliveryCard({ order, onStatusUpdate }) {
             {/* Card header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
                 <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            Order #{order.delivery_id}
-          </span>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                        Order #{order.delivery_id}
+                    </span>
                     <span className="text-sm text-gray-500">
-            Customer #{order.customer_id} · {date}
-          </span>
+                        Customer #{order.customer_id} · {date}
+                    </span>
                 </div>
                 <div className="flex items-center gap-3">
                     <StatusBadge status={order.status} />
                     <span className="text-base font-bold text-gray-900">
-            ${order.total_price.toFixed(2)}
-          </span>
+                        ${order.total_price.toFixed(2)}
+                    </span>
                 </div>
             </div>
 
             {/* Delivery address */}
             <div className="px-5 pb-3 border-t border-gray-100 pt-3">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-          Delivery address
-        </span>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    Delivery address
+                </span>
                 <p className="text-sm text-gray-700 mt-0.5">{order.delivery_address}</p>
             </div>
 
@@ -139,34 +177,7 @@ function DeliveryCard({ order, onStatusUpdate }) {
                 >
                     {expanded ? "▲ Hide items" : "▼ View items"} ({order.items?.length ?? 0})
                 </button>
-                {expanded && (
-                    order.items && order.items.length > 0 ? (
-                        <table className="w-full text-sm border-t border-gray-100">
-                            <thead>
-                            <tr className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
-                                <th className="text-left px-5 py-2.5 font-semibold">Product ID</th>
-                                <th className="text-center px-5 py-2.5 font-semibold">Qty</th>
-                                <th className="text-right px-5 py-2.5 font-semibold">Unit Price</th>
-                                <th className="text-right px-5 py-2.5 font-semibold">Subtotal</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {order.items.map((item) => (
-                                <tr key={item.id} className="border-t border-gray-100">
-                                    <td className="px-5 py-3 text-gray-700 font-medium">{item.product_id}</td>
-                                    <td className="px-5 py-3 text-gray-600 text-center">{item.quantity}</td>
-                                    <td className="px-5 py-3 text-gray-600 text-right">${item.price.toFixed(2)}</td>
-                                    <td className="px-5 py-3 text-gray-900 font-semibold text-right">
-                                        ${(item.price * item.quantity).toFixed(2)}
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <p className="text-sm text-gray-400 px-5 py-4 italic">No item details available.</p>
-                    )
-                )}
+                {expanded && <ItemsTable items={order.items} productMap={productMap} />}
             </div>
 
         </div>
@@ -174,13 +185,14 @@ function DeliveryCard({ order, onStatusUpdate }) {
 }
 
 export default function DeliveryManager() {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [filter, setFilter] = useState("all");
+    const [orders, setOrders]         = useState([]);
+    const [productMap, setProductMap] = useState({});
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState(null);
+    const [filter, setFilter]         = useState("all");
 
     useEffect(() => {
-        async function fetchDeliveries() {
+        async function fetchAll() {
             try {
                 const token = localStorage.getItem("token");
                 const res = await fetch(`${API_BASE}/api/deliveries`, {
@@ -190,13 +202,40 @@ export default function DeliveryManager() {
                 const data = await res.json();
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
+
+                // Collect all unique valid MongoDB ObjectID product IDs
+                const isValidId = (id) => typeof id === "string" && /^[a-f0-9]{24}$/i.test(id);
+                const uniqueIds = [
+                    ...new Set(
+                        data.flatMap((order) => (order.items || []).map((item) => item.product_id))
+                            .filter(isValidId)
+                    ),
+                ];
+
+                if (uniqueIds.length === 0) return;
+
+                // Fetch all products in parallel
+                const results = await Promise.all(
+                    uniqueIds.map(async (pid) => {
+                        try {
+                            const r = await fetch(`${API_BASE}/api/products/${pid}`);
+                            if (!r.ok) return [pid, null];
+                            const p = await r.json();
+                            return [pid, p];
+                        } catch {
+                            return [pid, null];
+                        }
+                    })
+                );
+
+                setProductMap(Object.fromEntries(results));
             } catch (err) {
                 setError(err.message);
             } finally {
                 setLoading(false);
             }
         }
-        fetchDeliveries();
+        fetchAll();
     }, []);
 
     function handleStatusUpdate(orderId, updatedOrder) {
@@ -252,8 +291,8 @@ export default function DeliveryManager() {
                             {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
                             {" "}
                             <span className="opacity-70">
-                ({s === "all" ? orders.length : orders.filter((o) => o.status === s).length})
-              </span>
+                                ({s === "all" ? orders.length : orders.filter((o) => o.status === s).length})
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -277,6 +316,7 @@ export default function DeliveryManager() {
                         key={order.delivery_id}
                         order={order}
                         onStatusUpdate={handleStatusUpdate}
+                        productMap={productMap}
                     />
                 ))}
             </div>
