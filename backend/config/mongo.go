@@ -12,6 +12,8 @@ import (
 
 var MongoClient *mongo.Client
 
+var MongoDBName = "medieval_store"
+
 func ConnectMongo() error {
 	uri := os.Getenv("MONGO_URI")
 
@@ -37,10 +39,4 @@ func ConnectMongo() error {
 	MongoClient = client
 	log.Println("Successfully connected to MongoDB!")
 	return nil
-}
-
-// NEW FUNCTION: This is what controllers.GetProducts needs!
-func GetCollection(collectionName string) *mongo.Collection {
-	// IMPORTANT: Change "medieval_store" to whatever you named your actual database in Atlas
-	return MongoClient.Database("medieval_store").Collection(collectionName)
 }

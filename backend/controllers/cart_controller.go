@@ -77,7 +77,7 @@ func GetCart(c *gin.Context) {
 
 	filter := bson.M{"_id": bson.M{"$in": objectIDs}}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)

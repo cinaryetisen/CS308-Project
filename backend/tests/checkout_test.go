@@ -33,30 +33,23 @@ func setupCheckoutRouter() *gin.Engine {
 	return router
 }
 
-// Helper to clean up MongoDB products after checkout tests
-func clearMongoProducts() {
-	if config.MongoClient != nil {
-		config.MongoClient.Database("medieval_store").Collection("products").DeleteMany(context.Background(), bson.M{})
-	}
-}
-
 func TestCheckout_Success(t *testing.T) {
 	setupTestDB()
 	ensureMongo() // Ensure MongoDB is connected
 	defer clearTestDB()
-	defer clearMongoProducts()
+	defer clearMongoCollection("products")
 
 	// 1. Create a fake user in PostgreSQL
 	config.DB.Create(&models.User{ID: 1, Name: "King Arthur", Email: "arthur@camelot.com"})
 
 	// 2. Create a fake product in MongoDB with a stock of 10
 	productID := primitive.NewObjectID()
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	collection.InsertOne(context.Background(), models.Product{
 		ID:       productID,
 		Name:     "Iron Sword",
 		Price:    150.50,
-		Quantity: 10, // Plenty in stock!
+		Quantity: 10,
 	})
 
 	router := setupCheckoutRouter()
@@ -81,10 +74,14 @@ func TestCheckout_Success(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 	assert.Contains(t, w.Body.String(), "Order placed successfully")
 
+	// NEW: Verify the invoice_items array is returned with the correct name!
+	assert.Contains(t, w.Body.String(), "invoice_items")
+	assert.Contains(t, w.Body.String(), "Iron Sword")
+
 	// 5. Verify PostgreSQL saved the real price from MongoDB
 	var orderItem models.OrderItem
 	config.DB.First(&orderItem)
-	assert.Equal(t, 150.50, orderItem.Price) // Proves the backend ignored the frontend and fetched the real price!
+	assert.Equal(t, 150.50, orderItem.Price)
 
 	// 6. Verify MongoDB stock went down from 10 to 8!
 	var updatedProduct models.Product
@@ -96,13 +93,13 @@ func TestCheckout_OutOfStock(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
 	defer clearTestDB()
-	defer clearMongoProducts()
+	defer clearMongoCollection("products")
 
 	config.DB.Create(&models.User{ID: 1, Name: "Lancelot"})
 
 	// Create a product with ONLY 1 left in stock
 	productID := primitive.NewObjectID()
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	collection.InsertOne(context.Background(), models.Product{
 		ID:       productID,
 		Name:     "Holy Grail",

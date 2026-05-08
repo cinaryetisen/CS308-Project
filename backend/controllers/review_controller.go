@@ -54,7 +54,7 @@ func CreateReview(c *gin.Context) {
 		CreatedAt: time.Now(),
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("reviews")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("reviews")
 	_, err = collection.InsertOne(context.Background(), review)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit review"})
@@ -73,7 +73,7 @@ func GetProductReviews(c *gin.Context) {
 		return
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("reviews")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("reviews")
 
 	filter := bson.M{"product_id": objID, "status": "approved"}
 	cursor, err := collection.Find(context.Background(), filter)
@@ -97,7 +97,7 @@ func GetProductReviews(c *gin.Context) {
 
 // Function to get pending reviews for a product manager
 func GetPendingReviews(c *gin.Context) {
-	collection := config.MongoClient.Database("medieval_store").Collection("reviews")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("reviews")
 
 	cursor, err := collection.Find(context.Background(), bson.M{"status": "pending"})
 	if err != nil {
@@ -138,7 +138,7 @@ func ModerateReview(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	reviewsCollection := config.MongoClient.Database("medieval_store").Collection("reviews")
+	reviewsCollection := config.MongoClient.Database(config.MongoDBName).Collection("reviews")
 
 	newStatus := "rejected"
 	if input.Action == "approve" {

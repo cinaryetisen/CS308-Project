@@ -1,11 +1,13 @@
 package tests
 
 import (
+	"context"
 	"log"
 	"medieval-store/config"
 	"medieval-store/models"
 
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -26,6 +28,16 @@ func setupTestDB() {
 
 	// Temporarily override your real PostgreSQL connection with this fake one
 	config.DB = db
+	config.MongoDBName = "medieval_store_test"
+}
+
+func clearMongoCollection(name string) {
+	if config.MongoDBName == "medieval_store" {
+		panic("test attempted to clear the production database; check setup_test.go")
+	}
+	if config.MongoClient != nil {
+		config.MongoClient.Database(config.MongoDBName).Collection(name).DeleteMany(context.Background(), bson.M{})
+	}
 }
 
 // clearTestDB wipes the fake database clean after every single test
