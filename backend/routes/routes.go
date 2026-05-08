@@ -20,6 +20,8 @@ func SetupRouter() *gin.Engine {
 		AllowCredentials: true,
 	}))
 
+	router.Static("/images", "./images")
+
 	api := router.Group("/api")
 
 	api.POST("/signup", controllers.Signup)
