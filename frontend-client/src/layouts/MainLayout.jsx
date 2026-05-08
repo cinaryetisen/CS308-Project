@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import Sidebar from '../components/Sidebar';
 
 export default function MainLayout() {
     const navigate = useNavigate();
@@ -9,7 +10,7 @@ export default function MainLayout() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [userData, setUserData] = useState(null);
-    const [cartCount, setCartCount]       = useState(0);
+    const [cartCount, setCartCount] = useState(0);
 
     // ── Cart Fetching Logic ─────────────────────────────────────────────────
     const refreshCartCount = async () => {
@@ -32,7 +33,6 @@ export default function MainLayout() {
         }
     };
 
-    // Check for token and fetch initial cart count on component mount
     useEffect(() => {
         const token = localStorage.getItem("token");
         const user = localStorage.getItem("user");
@@ -43,10 +43,9 @@ export default function MainLayout() {
                 setUserData(JSON.parse(user));
             }
         }
-        refreshCartCount(); // Fetch cart immediately on load
+        refreshCartCount();
     }, []);
 
-    // Handle Logout
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -55,16 +54,18 @@ export default function MainLayout() {
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
-        setCartCount(0); // Reset cart count on logout
+        setCartCount(0);
         
         navigate('/login');
     };
 
     return (
-        <div className="min-h-screen bg-[#1c110b] text-[#f5ded3] flex flex-col">
-
-            {/* TOP HEADER (full width) */}
-            <header className="w-full sticky top-0 z-50 bg-[#1c110b] border-b border-[#342720] px-6 py-4 flex justify-between items-center">
+        // 👇 Changed to flex-col and h-screen so the layout fills the exact window height
+        <div className="flex flex-col h-screen bg-[#1c110b] text-[#f5ded3] overflow-hidden">
+            
+            {/* ── TOP HEADER (Now spans the absolute full width) ── */}
+            {/* Added shrink-0 so the header never squishes */}
+            <header className="shrink-0 w-full z-50 bg-[#1c110b] border-b border-[#342720] px-6 py-4 flex justify-between items-center">
                 
                 {/* Logo / Brand */}
                 <h2 className="text-xl font-serif text-[#e7b4ff]">
@@ -82,10 +83,10 @@ export default function MainLayout() {
                 <div className="flex items-center gap-6">
                     <Link to="/shoppingcart" className="text-2xl hover:scale-110 transition-transform">
                         🛒 {cartCount > 0 && (
-                                <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
-                                    {cartCount > 99 ? "99+" : cartCount}
-                                </span>
-                            )}
+                            <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+                                {cartCount > 99 ? "99+" : cartCount}
+                            </span>
+                        )}
                     </Link> 
                     
                     {/* User Menu / Auth Logic */}
@@ -143,11 +144,18 @@ export default function MainLayout() {
                 </div>
             </header>
 
-            {/* Page Content Injected Here */}
-            <main className="flex-1 flex flex-col">
-                {/* Notice we pass the function down via the context prop */}
-                <Outlet context={{ refreshCartCount }} />
-            </main>
+            {/* ── BOTTOM ROW (Sidebar + Content) ── */}
+            <div className="flex flex-1 overflow-hidden">
+                
+                {/* Left Sidebar */}
+                <Sidebar />
+
+                {/* Main Content Area (Handles its own scrolling now) */}
+                <main className="flex-1 overflow-y-auto relative">
+                    <Outlet context={{ refreshCartCount }} />
+                </main>
+
+            </div>
         </div>
     );
 }

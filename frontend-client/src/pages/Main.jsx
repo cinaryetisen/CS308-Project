@@ -1,4 +1,4 @@
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 export default function Main() {
@@ -7,6 +7,10 @@ export default function Main() {
     
     // Grab the refresh function passed down from MainLayout
     const { refreshCartCount } = useOutletContext();
+
+    // ── GET CATEGORY FROM URL ───────────────────────────────────────────────
+    const [searchParams] = useSearchParams();
+    const categoryParam = searchParams.get("category");
 
     const [products, setProducts]         = useState([]);
     const [loading, setLoading]           = useState(true);
@@ -38,7 +42,14 @@ export default function Main() {
             setLoading(true);
             try {
                 let url = `${API_URL}/api/products?`;
+                
+                // Add Search
                 if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`; 
+                
+                // ── ADD CATEGORY TO BACKEND FETCH ───────────────────────────
+                if (categoryParam) url += `category=${encodeURIComponent(categoryParam)}&`;
+
+                // Add Sort
                 if (sortOption !== "default") {
                     const sortMap = {
                         "price-asc":   "price_asc",
@@ -47,6 +58,7 @@ export default function Main() {
                     };
                     url += `sort=${sortMap[sortOption]}`;
                 }
+                
                 const response = await fetch(url);
                 const data     = await response.json();
                 setProducts(Array.isArray(data) ? data : []);
@@ -57,7 +69,8 @@ export default function Main() {
             }
         };
         fetchProducts();
-    }, [API_URL, debouncedSearch, sortOption]);
+    // ── ADD CATEGORY PARAM TO DEPENDENCY ARRAY ──────────────────────────────
+    }, [API_URL, debouncedSearch, sortOption, categoryParam]);
 
     // Add to Cart
     const addToCart = async (e, product) => {
@@ -121,8 +134,9 @@ export default function Main() {
 
                 {/* Title + Controls */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <h2 className="text-4xl font-serif text-[#f5ded3]">
-                        The Vault of Essence
+                    <h2 className="text-4xl font-serif text-[#f5ded3] capitalize">
+                        {/* Dynamic Title based on selected category! */}
+                        {categoryParam ? `The Vault — ${categoryParam}` : "The Vault of Essence"}
                     </h2>
                     
                     {/* Search & Sort Controls */}
@@ -142,7 +156,8 @@ export default function Main() {
                             <option value="default">Featured</option>
                             <option value="price-asc">Price ↑</option>
                             <option value="price-desc">Price ↓</option>
-                            <option value="rating-desc">Highest Rated</option>
+                            {/* 👇 Text updated here! */}
+                            <option value="rating-desc">Popularity</option>
                         </select>
                     </div>
                 </div>
