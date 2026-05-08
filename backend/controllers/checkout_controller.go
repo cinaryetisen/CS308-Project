@@ -143,6 +143,7 @@ func Checkout(c *gin.Context) {
 
 	// 6. Permanently commit the PostgreSQL changes!
 	tx.Commit()
+	newOrder.Items = savedOrderItems
 
 	// 7. Fetch the User's details and trigger the background PDF logic
 	var user models.User

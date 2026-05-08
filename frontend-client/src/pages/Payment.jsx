@@ -107,7 +107,7 @@ export default function Payment() {
             if (refreshCartCount) refreshCartCount();
 
             // ── F4: Navigate to invoice page instead of alert ──
-            navigate(`/invoice/${data.order.id}`, { state: { order: data.order } });
+            navigate(`/invoice/${data.order.delivery_id}`, { state: { order: data.order } });
 
         } catch (error) {
             console.error("Checkout Error:", error);

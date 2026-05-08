@@ -149,6 +149,9 @@ export default function Invoice() {
                                 <>
                                     <p className="text-sm font-medium text-gray-800">{user.name || "—"}</p>
                                     <p className="text-xs text-gray-500">{user.email}</p>
+                                    {user.tax_id && (
+                                        <p className="text-xs text-gray-500">Tax ID: {user.tax_id}</p>
+                                    )}
                                 </>
                             ) : (
                                 <p className="text-sm text-gray-400 italic">Loading...</p>
