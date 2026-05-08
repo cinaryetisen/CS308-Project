@@ -4,11 +4,9 @@ import { useEffect, useState } from 'react';
 export default function Main() {
     const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
-    
-    // Grab the refresh function passed down from MainLayout
+
     const { refreshCartCount } = useOutletContext();
 
-    // ── GET CATEGORY FROM URL ───────────────────────────────────────────────
     const [searchParams] = useSearchParams();
     const categoryParam = searchParams.get("category");
 
@@ -19,22 +17,14 @@ export default function Main() {
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [cartFeedback, setCartFeedback] = useState({});
 
-    // Wait 300ms after the user stops typing before setting the actual search term
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-        }, 300);
-        return () => clearTimeout(timer); // Cleanup if they keep typing
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Auth state
-    const [isLoggedIn, setIsLoggedIn]     = useState(false);
-
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (token) {
-            setIsLoggedIn(true);
-        }
+        if (localStorage.getItem("token")) setIsLoggedIn(true);
     }, []);
 
     useEffect(() => {
@@ -42,23 +32,12 @@ export default function Main() {
             setLoading(true);
             try {
                 let url = `${API_URL}/api/products?`;
-                
-                // Add Search
-                if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`; 
-                
-                // ── ADD CATEGORY TO BACKEND FETCH ───────────────────────────
-                if (categoryParam) url += `category=${encodeURIComponent(categoryParam)}&`;
-
-                // Add Sort
+                if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`;
+                if (categoryParam)   url += `category=${encodeURIComponent(categoryParam)}&`;
                 if (sortOption !== "default") {
-                    const sortMap = {
-                        "price-asc":   "price_asc",
-                        "price-desc":  "price_desc",
-                        "rating-desc": "popular",
-                    };
+                    const sortMap = { "price-asc": "price_asc", "price-desc": "price_desc", "rating-desc": "popular" };
                     url += `sort=${sortMap[sortOption]}`;
                 }
-                
                 const response = await fetch(url);
                 const data     = await response.json();
                 setProducts(Array.isArray(data) ? data : []);
@@ -69,32 +48,25 @@ export default function Main() {
             }
         };
         fetchProducts();
-    // ── ADD CATEGORY PARAM TO DEPENDENCY ARRAY ──────────────────────────────
     }, [API_URL, debouncedSearch, sortOption, categoryParam]);
 
-    // Add to Cart
     const addToCart = async (e, product) => {
         e.stopPropagation();
         if (product.quantity === 0) return;
-
         if (isLoggedIn) {
             try {
                 const token = localStorage.getItem("token");
                 const response = await fetch(`${API_URL}/api/cart/item`, {
                     method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ product_id: product.id, quantity: 1 })
                 });
                 if (response.ok) {
                     setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
                     setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
-                    refreshCartCount(); // Trigger Header update
+                    refreshCartCount();
                 } else {
-                    const errorData = await response.json();
-                    console.error("Failed to add to backend cart:", errorData.error);
+                    console.error("Failed to add to backend cart:", (await response.json()).error);
                 }
             } catch (error) {
                 console.error("Network error adding to cart:", error);
@@ -110,18 +82,10 @@ export default function Main() {
                 }
                 cart[idx].quantity = Math.min(cart[idx].quantity + 1, product.quantity);
             } else {
-                cart.push({
-                    id:        product.id,
-                    name:      product.name,
-                    price:     product.price,
-                    image_url: product.image_url,
-                    stock:     product.quantity,
-                    quantity:  1,
-                });
+                cart.push({ id: product.id, name: product.name, price: product.price, image_url: product.image_url, stock: product.quantity, quantity: 1 });
             }
             localStorage.setItem("cart", JSON.stringify(cart));
-            refreshCartCount(); // Trigger Header update
-            
+            refreshCartCount();
             setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
             setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
         }
@@ -129,17 +93,11 @@ export default function Main() {
 
     return (
         <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
-            {/* ── Main ── */}
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">
-
-                {/* Title + Controls */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <h2 className="text-4xl font-serif text-[#f5ded3] capitalize">
-                        {/* Dynamic Title based on selected category! */}
                         {categoryParam ? `The Vault — ${categoryParam}` : "The Vault of Essence"}
                     </h2>
-                    
-                    {/* Search & Sort Controls */}
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                         <input
                             type="text"
@@ -156,13 +114,11 @@ export default function Main() {
                             <option value="default">Featured</option>
                             <option value="price-asc">Price ↑</option>
                             <option value="price-desc">Price ↓</option>
-                            {/* 👇 Text updated here! */}
                             <option value="rating-desc">Popularity</option>
                         </select>
                     </div>
                 </div>
 
-                {/* Product Grid */}
                 {loading ? (
                     <p className="text-center py-20 text-[#9a8c9b]">Loading...</p>
                 ) : products.length === 0 ? (
@@ -170,11 +126,9 @@ export default function Main() {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
                         {products.map((product) => {
-                            const outOfStock = product.quantity === 0;
-                            const feedback   = cartFeedback[product.id];
-                            const discountedPrice = product.discount > 0
-                                ? product.price * (1 - product.discount / 100)
-                                : null;
+                            const outOfStock      = product.quantity === 0;
+                            const feedback        = cartFeedback[product.id];
+                            const discountedPrice = product.discount > 0 ? product.price * (1 - product.discount / 100) : null;
 
                             return (
                                 <div
@@ -182,21 +136,13 @@ export default function Main() {
                                     onClick={() => navigate(`/products/${product.id}`)}
                                     className="group relative overflow-hidden bg-[#251912] border border-[#342720] hover:border-[#8a47af] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg p-4 transition-all duration-300 cursor-pointer flex flex-col"
                                 >
-                                    {/* Hover overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-r from-[#e7b4ff]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-                                    {/* Image */}
                                     <div className="relative z-10 aspect-[4/5] mb-4 overflow-hidden rounded border border-[#342720]/50">
-                                        <img
-                                            src={product.image_url}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                        />
-                                        {/* Stock badge */}
+                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                         <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm ${outOfStock ? 'bg-[#93000a] text-[#ffdad6]' : 'bg-[#add461] text-[#131f00]'}`}>
                                             {outOfStock ? "Out of Stock" : "In Stock"}
                                         </div>
-                                        {/* Discount badge */}
                                         {discountedPrice && (
                                             <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#e7b4ff] text-[#300049] shadow-sm">
                                                 -{product.discount}%
@@ -204,22 +150,14 @@ export default function Main() {
                                         )}
                                     </div>
 
-                                    {/* Category */}
-                                    <span className="relative z-10 text-[10px] uppercase tracking-widest text-[#add461] mb-1">
-                                        {product.category || "Artifact"}
-                                    </span>
+                                    <span className="relative z-10 text-[10px] uppercase tracking-widest text-[#add461] mb-1">{product.category || "Artifact"}</span>
+                                    <h3 className="relative z-10 text-lg font-serif text-[#f5ded3] line-clamp-2">{product.name}</h3>
 
-                                    {/* Name */}
-                                    <h3 className="relative z-10 text-lg font-serif text-[#f5ded3] line-clamp-2">
-                                        {product.name}
-                                    </h3>
-
-                                    {/* Rating */}
+                                    {/* Rating — 1 decimal place */}
                                     <div className="relative z-10 text-sm text-[#9a8c9b] mt-1">
-                                        <span className="text-[#add461]">⭐ {product.rating}</span> ({product.review_count} reviews)
+                                        <span className="text-[#add461]">⭐ {Number(product.rating).toFixed(1)}</span> ({product.review_count} reviews)
                                     </div>
 
-                                    {/* Price */}
                                     <div className="relative z-10 mt-2 mb-4">
                                         {discountedPrice ? (
                                             <div className="flex items-center gap-2">
@@ -231,27 +169,17 @@ export default function Main() {
                                         )}
                                     </div>
 
-                                    {/* Button */}
                                     <button
                                         onClick={(e) => addToCart(e, product)}
                                         disabled={outOfStock}
                                         className={`relative z-10 mt-auto w-full py-2 rounded font-semibold active:scale-95 transition-all duration-150 shadow-md ${
-                                            outOfStock
-                                                ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
-                                                : feedback === "added"
-                                                ? "bg-[#add461] text-[#131f00]"
-                                                : feedback === "maxed"
-                                                ? "bg-[#93000a] text-[#ffdad6]"
-                                                : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                            outOfStock ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
+                                                : feedback === "added" ? "bg-[#add461] text-[#131f00]"
+                                                    : feedback === "maxed" ? "bg-[#93000a] text-[#ffdad6]"
+                                                        : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
                                         }`}
                                     >
-                                        {outOfStock
-                                            ? "Unavailable"
-                                            : feedback === "added"
-                                            ? "✓ Added"
-                                            : feedback === "maxed"
-                                            ? "Max Reached"
-                                            : "Add to Cart"}
+                                        {outOfStock ? "Unavailable" : feedback === "added" ? "✓ Added" : feedback === "maxed" ? "Max Reached" : "Add to Cart"}
                                     </button>
                                 </div>
                             );
