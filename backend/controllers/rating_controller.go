@@ -53,14 +53,14 @@ func CreateRating(c *gin.Context) {
 		CreatedAt: time.Now(),
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("ratings")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
 	_, err = collection.InsertOne(context.Background(), rating)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit rating"})
 		return
 	}
 
-	productsCollection := config.MongoClient.Database("medieval_store").Collection("products")
+	productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	var product models.Product
 	if err := productsCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err == nil {
 		newCount := product.ReviewCount + 1
@@ -88,7 +88,7 @@ func GetProductRatings(c *gin.Context) {
 		return
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("ratings")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
 
 	filter := bson.M{"product_id": objID}
 	cursor, err := collection.Find(context.Background(), filter)

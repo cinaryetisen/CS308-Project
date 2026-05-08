@@ -28,7 +28,7 @@ func GetProduct(c *gin.Context) {
 	}
 
 	//Connect to MongoDB collection
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -54,7 +54,7 @@ func GetProduct(c *gin.Context) {
 }
 
 func GetProducts(c *gin.Context) {
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

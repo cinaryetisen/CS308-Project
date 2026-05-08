@@ -26,6 +26,9 @@ func setupOrderRouter() *gin.Engine {
 	protected.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
 	protected.GET("/orders/me", controllers.GetMyOrders)
 
+	// NEW: Add the secure PDF route for the tests
+	protected.GET("/orders/:id/invoice", controllers.DownloadInvoice)
+
 	return router
 }
 func TestGetDeliveryList_Success(t *testing.T) {
@@ -151,4 +154,47 @@ func TestGetMyOrders_EmptyList(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "[]", w.Body.String()) // Should return an empty JSON array
+}
+
+func TestDownloadInvoice_Success(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	// Setup a user, order, and an order item to ensure preload works
+	config.DB.Create(&models.User{ID: 1, Name: "Arthur", Email: "arthur@camelot.com"})
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1, DeliveryAddress: "Camelot"})
+	config.DB.Create(&models.OrderItem{OrderID: 1, ProductID: "60d5ec49f1b2c8b1f8e4b1a1", Quantity: 1, Price: 100.00})
+
+	router := setupOrderRouter()
+
+	// Try to download the invoice for Order #1
+	req, _ := http.NewRequest("GET", "/api/orders/1/invoice", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer")) // Logging in as Arthur
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Assert the endpoint successfully generated and streamed a PDF
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/pdf", w.Header().Get("Content-Type"))
+	assert.NotEmpty(t, w.Body.Bytes()) // Ensure the PDF byte stream is not empty
+}
+
+func TestDownloadInvoice_Unauthorized(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	// Order belongs to User #1
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1})
+
+	router := setupOrderRouter()
+
+	// Try to download the invoice while logged in as User #2 (A hacker!)
+	req, _ := http.NewRequest("GET", "/api/orders/1/invoice", nil)
+	req.Header.Set("Authorization", getTestToken(2, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should be blocked!
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "Unauthorized to view this invoice")
 }

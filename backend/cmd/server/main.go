@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"medieval-store/config"
-	"medieval-store/models"
 	"medieval-store/routes"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +27,6 @@ func main() {
 		log.Fatalf("Mongo initializaiton failed: %v", err)
 	}
 
-	config.DB.AutoMigrate(&models.CartItem{}, &models.Order{}, &models.OrderItem{})
 	//Set up router
 	router := routes.SetupRouter()
 

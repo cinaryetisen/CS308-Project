@@ -49,7 +49,7 @@ func Checkout(c *gin.Context) {
 	productMap := make(map[string]models.Product)
 
 	if len(objectIDs) > 0 {
-		collection := config.MongoClient.Database("medieval_store").Collection("products")
+		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 		cursor, err := collection.Find(context.Background(), bson.M{"_id": bson.M{"$in": objectIDs}})
 
 		if err == nil {
@@ -110,7 +110,7 @@ func Checkout(c *gin.Context) {
 		// ATOMIC CONCURRENCY SHIELD: Deduct Stock
 		// ==========================================
 		objID, _ := primitive.ObjectIDFromHex(item.ProductID)
-		productsCollection := config.MongoClient.Database("medieval_store").Collection("products")
+		productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 
 		// Filter: Only match the product IF it has enough stock (>= item.Quantity)
 		filter := bson.M{
