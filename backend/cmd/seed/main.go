@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"medieval-store/config"
@@ -28,6 +29,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	imgBase := os.Getenv("IMAGE_BASE_URL")
+	if imgBase == "" {
+		imgBase = "http://localhost:8080/images"
+	}
+
 	// 3. Optional: Clear existing products so you can run this script safely multiple times
 	_, err := collection.DeleteMany(ctx, bson.M{})
 	if err != nil {
@@ -50,7 +56,7 @@ func main() {
 			Warranty:     "Lifetime (Against dragon fire)",
 			Distributor:  "Ironhelm Forge",
 			Category:     "Weapons",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/broadsword-of-the-bear.png",
 			Tags:         []string{"sword", "melee", "heavy"},
 			Rating:       4.8,
 			ReviewCount:  24,
@@ -69,7 +75,7 @@ func main() {
 			Warranty:     "No refunds once unsealed",
 			Distributor:  "The Arcane Order",
 			Category:     "Spells",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/scroll-of-lesser-healing.png",
 			Tags:         []string{"magic", "healing", "consumable"},
 			Rating:       4.2,
 			ReviewCount:  156,
@@ -88,7 +94,7 @@ func main() {
 			Warranty:     "1 Year",
 			Distributor:  "Rivendell Textiles",
 			Category:     "Apparel",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/elven-cloak-of-hiding.png",
 			Tags:         []string{"stealth", "armor", "rare"},
 			Rating:       5.0,
 			ReviewCount:  8,
@@ -108,7 +114,7 @@ func main() {
 			Warranty:     "6 Months",
 			Distributor:  "Woodland Fletchers",
 			Category:     "Weapons",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/rangers-longbow.png",
 			Tags:         []string{"bow", "ranged", "wood"},
 			Rating:       4.6,
 			ReviewCount:  89,
@@ -127,7 +133,7 @@ func main() {
 			Warranty:     "No Warranty",
 			Distributor:  "Shadow Traders",
 			Category:     "Weapons",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/obsidian-dagger.png",
 			Tags:         []string{"dagger", "stealth", "melee"},
 			Rating:       4.9,
 			ReviewCount:  12,
@@ -146,7 +152,7 @@ func main() {
 			Warranty:     "2 Years",
 			Distributor:  "Ironhelm Forge",
 			Category:     "Weapons",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/heavy-halberd.png",
 			Tags:         []string{"polearm", "heavy", "melee"},
 			Rating:       4.1,
 			ReviewCount:  34,
@@ -165,7 +171,7 @@ func main() {
 			Warranty:     "5 Years",
 			Distributor:  "Deep Mountain Guild",
 			Category:     "Weapons",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/dwarven-crossbow.png",
 			Tags:         []string{"ranged", "mechanical", "dwarven"},
 			Rating:       4.7,
 			ReviewCount:  56,
@@ -185,7 +191,7 @@ func main() {
 			Warranty:     "1 Year",
 			Distributor:  "Ironhelm Forge",
 			Category:     "Apparel",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/standard-iron-chainmail.png",
 			Tags:         []string{"armor", "iron", "heavy"},
 			Rating:       3.8,
 			ReviewCount:  112,
@@ -204,7 +210,7 @@ func main() {
 			Warranty:     "Lifetime",
 			Distributor:  "Deep Mountain Guild",
 			Category:     "Apparel",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/mithril-chestplate.png",
 			Tags:         []string{"armor", "legendary", "lightweight"},
 			Rating:       5.0,
 			ReviewCount:  2,
@@ -223,7 +229,7 @@ func main() {
 			Warranty:     "30 Days",
 			Distributor:  "Woodland Fletchers",
 			Category:     "Apparel",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/hardened-leather-bracers.png",
 			Tags:         []string{"armor", "leather", "accessories"},
 			Rating:       4.3,
 			ReviewCount:  67,
@@ -242,7 +248,7 @@ func main() {
 			Warranty:     "1 Year",
 			Distributor:  "Ironhelm Forge",
 			Category:     "Apparel",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/steel-kite-shield.png",
 			Tags:         []string{"shield", "defense", "steel"},
 			Rating:       4.5,
 			ReviewCount:  41,
@@ -262,7 +268,7 @@ func main() {
 			Warranty:     "No Refunds",
 			Distributor:  "The Arcane Order",
 			Category:     "Spells",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/potion-of-invisibility.png",
 			Tags:         []string{"potion", "stealth", "magic"},
 			Rating:       4.8,
 			ReviewCount:  203,
@@ -281,7 +287,7 @@ func main() {
 			Warranty:     "Void if exposed to water",
 			Distributor:  "The Arcane Order",
 			Category:     "Spells",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/wand-of-fireballs.png",
 			Tags:         []string{"magic", "fire", "ranged"},
 			Rating:       4.2,
 			ReviewCount:  19,
@@ -300,7 +306,7 @@ func main() {
 			Warranty:     "No Refunds",
 			Distributor:  "The Arcane Order",
 			Category:     "Spells",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/minor-mana-potion.png",
 			Tags:         []string{"potion", "mana", "consumable"},
 			Rating:       4.0,
 			ReviewCount:  412,
@@ -319,7 +325,7 @@ func main() {
 			Warranty:     "As-Is Condition",
 			Distributor:  "Silvermoon Library",
 			Category:     "Spells",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/tome-of-ancient-lore.png",
 			Tags:         []string{"book", "lore", "magic"},
 			Rating:       4.9,
 			ReviewCount:  6,
@@ -339,7 +345,7 @@ func main() {
 			Warranty:     "Lifetime",
 			Distributor:  "Shadow Traders",
 			Category:     "Accessories",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/ring-of-vitality.png",
 			Tags:         []string{"jewelry", "enchanted", "health"},
 			Rating:       4.6,
 			ReviewCount:  45,
@@ -358,7 +364,7 @@ func main() {
 			Warranty:     "No Warranty (Fragile)",
 			Distributor:  "The Arcane Order",
 			Category:     "Accessories",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/crystal-ball-of-scrying.png",
 			Tags:         []string{"magic", "divination", "tool"},
 			Rating:       3.9,
 			ReviewCount:  14,
@@ -377,7 +383,7 @@ func main() {
 			Warranty:     "5 Years",
 			Distributor:  "Silvermoon Library",
 			Category:     "Accessories",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/amulet-of-protection.png",
 			Tags:         []string{"jewelry", "defense", "magic"},
 			Rating:       4.7,
 			ReviewCount:  28,
@@ -396,7 +402,7 @@ func main() {
 			Warranty:     "30 Days",
 			Distributor:  "Shadow Traders",
 			Category:     "Accessories",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/lockpick-set.png",
 			Tags:         []string{"tools", "stealth", "rogue"},
 			Rating:       4.4,
 			ReviewCount:  132,
@@ -415,7 +421,7 @@ func main() {
 			Warranty:     "No Warranty",
 			Distributor:  "Woodland Fletchers",
 			Category:     "Accessories",
-			ImageURL:     "https://i.pinimg.com/736x/87/29/c4/8729c4c6a9887656a523615968638d45.jpg",
+			ImageURL:     imgBase + "/torch.png",
 			Tags:         []string{"tool", "light", "consumable"},
 			Rating:       4.1,
 			ReviewCount:  890,
