@@ -123,8 +123,7 @@ export default function ShoppingCart() {
     const handleCheckout = () => {
         setCheckoutError("");
         if (!isLoggedIn) {
-            setCheckoutError("You must be logged in to proceed to payment. Redirecting to login...");
-            setTimeout(() => navigate("/login"), 2000);
+            setCheckoutError("You must be logged in to proceed to payment.");
         } else {
             navigate("/payment");
         }

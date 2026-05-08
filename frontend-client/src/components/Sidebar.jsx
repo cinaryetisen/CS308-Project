@@ -1,50 +1,72 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export default function Sidebar() {
-  return (
-    <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 bg-[#1c110b] border-r border-[#40322a] p-6">
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const API_URL = import.meta.env.VITE_API_URL;
 
-      <div className="mb-10">
-        <h2 className="text-xl font-serif text-[#e7b4ff]">
-          The Archivist
-        </h2>
-        <p className="text-xs text-[#9a8c9b] uppercase tracking-widest">
-          Master Merchant
+  useEffect(() => {
+    const fetchCategoriesFromProducts = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/products`);
+        
+        if (response.ok) {
+          const products = await response.json();
+          const allCategories = products.map(product => product.category).filter(Boolean);
+          const uniqueCategories = [...new Set(allCategories)];
+          setCategories(uniqueCategories);
+        } else {
+          console.error("Failed to fetch products to build category list");
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategoriesFromProducts();
+  }, [API_URL]);
+
+  return (
+    // 👇 Removed h-screen and sticky. Added h-full and overflow-y-auto.
+    <aside className="hidden lg:flex flex-col w-64 h-full bg-[#1c110b] border-r border-[#40322a] p-6 z-40 overflow-y-auto">
+      <div className="mb-10 shrink-0">
+        <h2 className="text-xl font-serif text-[#e7b4ff]">Categories</h2>
+        <p className="text-xs text-[#9a8c9b] uppercase tracking-widest mt-1">
+          Filter Wares
         </p>
       </div>
 
-      <nav className="flex flex-col gap-2 text-sm">
-
+      <nav className="flex flex-col gap-2 text-sm pb-6">
         <Link
           to="/"
-          className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg"
+          className="px-4 py-2 text-[#e7b4ff] hover:bg-[#342720] rounded-lg transition mb-2 shrink-0"
         >
-          Shop
+          All Items
         </Link>
 
-        <Link
-          to="/orders"
-          className="px-4 py-2 text-[#d1c5b0] hover:bg-[#342720] rounded-lg"
-        >
-          Orders
-        </Link>
-
-        <Link
-          to="/profile"
-          className="px-4 py-2 text-[#d1c5b0] hover:bg-[#342720] rounded-lg"
-        >
-          Profile
-        </Link>
-
-        <Link
-          to="/shoppingcart"
-          className="px-4 py-2 text-[#d1c5b0] hover:bg-[#342720] rounded-lg"
-        >
-          Cart
-        </Link>
-
+        {loading ? (
+          <div className="px-4 py-2 text-[#9a8c9b] animate-pulse">
+            Consulting the archives...
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="px-4 py-2 text-[#9a8c9b] italic">
+            No categories found.
+          </div>
+        ) : (
+          categories.map((category) => (
+            <Link
+              key={category} 
+              to={`/?category=${encodeURIComponent(category)}`}
+              className="px-4 py-2 text-[#d1c5b0] hover:bg-[#342720] hover:text-[#e7b4ff] rounded-lg transition capitalize shrink-0"
+            >
+              {category}
+            </Link>
+          ))
+        )}
       </nav>
-
     </aside>
   );
 }
