@@ -5,15 +5,19 @@ const API_BASE = import.meta.env.VITE_API_URL;
 const RATING_LABELS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];
 
 function StarDisplay({ rating }) {
+    if (!rating) return null;
     return (
-        <span className="text-yellow-400 text-sm">
-            {"★".repeat(rating)}{"☆".repeat(5 - rating)}
-        </span>
+        <div className="flex items-center gap-1">
+            <span className="text-yellow-400 text-sm">
+                {"★".repeat(rating)}{"☆".repeat(5 - rating)}
+            </span>
+            <span className="text-xs text-gray-400">{RATING_LABELS[rating]}</span>
+        </div>
     );
 }
 
-function ReviewCard({ review, onModerated }) {
-    const [saving, setSaving]     = useState(null); // "approve" | "reject" | null
+function ReviewCard({ review, rating, onModerated }) {
+    const [saving, setSaving]     = useState(null);
     const [feedback, setFeedback] = useState(null);
 
     const date = new Date(review.created_at).toLocaleDateString("en-US", {
@@ -33,13 +37,11 @@ function ReviewCard({ review, onModerated }) {
                 },
                 body: JSON.stringify({ action }),
             });
-
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.error || "Action failed");
             }
-
-            onModerated(review.id, action);
+            onModerated(review.id);
         } catch (err) {
             setFeedback(err.message);
             setSaving(null);
@@ -60,10 +62,7 @@ function ReviewCard({ review, onModerated }) {
                         <p className="text-xs text-gray-400">{date}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <StarDisplay rating={review.rating} />
-                    <span className="text-xs text-gray-400">{RATING_LABELS[review.rating]}</span>
-                </div>
+                <StarDisplay rating={rating} />
             </div>
 
             {/* Product ID */}
@@ -75,7 +74,9 @@ function ReviewCard({ review, onModerated }) {
             {/* Comment */}
             <div className="px-5 pb-4">
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Comment</span>
-                <p className="text-sm text-gray-700 mt-1 leading-relaxed">{review.comment || <em className="text-gray-400">No comment</em>}</p>
+                <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                    {review.comment || <em className="text-gray-400">No comment</em>}
+                </p>
             </div>
 
             {/* Actions */}
@@ -96,7 +97,6 @@ function ReviewCard({ review, onModerated }) {
                 </button>
             </div>
 
-            {/* Error feedback */}
             {feedback && (
                 <div className="px-5 py-2.5 text-sm font-medium border-t bg-red-50 text-red-700 border-red-100">
                     {feedback}
@@ -107,9 +107,11 @@ function ReviewCard({ review, onModerated }) {
 }
 
 export default function ReviewManager() {
-    const [reviews, setReviews]   = useState([]);
-    const [loading, setLoading]   = useState(true);
-    const [error, setError]       = useState(null);
+    const [reviews, setReviews]       = useState([]);
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState(null);
+    // Map of "productId:userId" -> rating number
+    const [ratingsMap, setRatingsMap] = useState({});
 
     useEffect(() => {
         async function fetchPending() {
@@ -120,7 +122,25 @@ export default function ReviewManager() {
                 });
                 if (!res.ok) throw new Error("Failed to fetch pending reviews");
                 const data = await res.json();
-                setReviews(data || []);
+                const pending = data || [];
+                setReviews(pending);
+
+                // Collect unique product IDs and fetch their ratings
+                const uniqueProductIds = [...new Set(pending.map((r) => r.product_id))];
+                const map = {};
+                await Promise.all(
+                    uniqueProductIds.map(async (productId) => {
+                        try {
+                            const rRes = await fetch(`${API_BASE}/api/products/${productId}/ratings`);
+                            if (!rRes.ok) return;
+                            const ratings = await rRes.json();
+                            (ratings || []).forEach((r) => {
+                                map[`${productId}:${r.user_id}`] = r.rating;
+                            });
+                        } catch { /* skip */ }
+                    })
+                );
+                setRatingsMap(map);
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -131,7 +151,6 @@ export default function ReviewManager() {
     }, []);
 
     function handleModerated(reviewId) {
-        // Remove the review from the list after approve or reject
         setReviews((prev) => prev.filter((r) => r.id !== reviewId));
     }
 
@@ -148,8 +167,6 @@ export default function ReviewManager() {
 
     return (
         <div className="max-w-2xl mx-auto">
-
-            {/* Page title */}
             <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-bold text-gray-900">Review Moderation</h1>
                 {reviews.length > 0 && (
@@ -157,14 +174,12 @@ export default function ReviewManager() {
                 )}
             </div>
 
-            {/* Error */}
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-lg px-4 py-3 mb-4">
                     {error}
                 </div>
             )}
 
-            {/* Empty state */}
             {!error && reviews.length === 0 && (
                 <div className="bg-white border border-gray-200 rounded-xl px-6 py-14 text-center">
                     <p className="text-4xl mb-3">✅</p>
@@ -173,17 +188,16 @@ export default function ReviewManager() {
                 </div>
             )}
 
-            {/* Reviews list */}
             <div className="flex flex-col gap-3">
                 {reviews.map((review) => (
                     <ReviewCard
                         key={review.id}
                         review={review}
+                        rating={ratingsMap[`${review.product_id}:${review.user_id}`]}
                         onModerated={handleModerated}
                     />
                 ))}
             </div>
-
         </div>
     );
 }
