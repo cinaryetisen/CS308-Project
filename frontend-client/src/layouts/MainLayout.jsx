@@ -6,13 +6,11 @@ export default function MainLayout() {
     const navigate = useNavigate();
     const API_URL = import.meta.env.VITE_API_URL;
 
-    // ── Auth & Dropdown State ───────────────────────────────────────────────
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [userData, setUserData] = useState(null);
     const [cartCount, setCartCount] = useState(0);
 
-    // ── Cart Fetching Logic ─────────────────────────────────────────────────
     const refreshCartCount = async () => {
         const token = localStorage.getItem("token");
         if (token) {
@@ -35,64 +33,67 @@ export default function MainLayout() {
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-        const user = localStorage.getItem("user");
-        
+
         if (token) {
             setIsLoggedIn(true);
-            if (user) {
-                setUserData(JSON.parse(user));
-            }
+
+            // Always fetch fresh user data from the API so the name is always up to date
+            fetch(`${API_URL}/api/users/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(user => {
+                    if (user) {
+                        setUserData(user);
+                        localStorage.setItem("user", JSON.stringify(user));
+                    }
+                })
+                .catch(err => console.error("Failed to fetch user profile", err));
         }
+
         refreshCartCount();
     }, []);
 
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.removeItem("cart"); 
+        localStorage.removeItem("cart");
 
         setIsLoggedIn(false);
         setShowDropdown(false);
         setUserData(null);
         setCartCount(0);
-        
+
         navigate('/');
     };
 
     return (
-        // 👇 Changed to flex-col and h-screen so the layout fills the exact window height
         <div className="flex flex-col h-screen bg-[#1c110b] text-[#f5ded3] overflow-hidden">
-            
-            {/* ── TOP HEADER (Now spans the absolute full width) ── */}
-            {/* Added shrink-0 so the header never squishes */}
+
             <header className="shrink-0 w-full z-50 bg-[#1c110b] border-b border-[#342720] px-6 py-4 flex justify-between items-center">
-                
-                {/* Logo / Brand */}
+
                 <h2 className="text-xl font-serif text-[#e7b4ff]">
                     The Vault
                 </h2>
 
-                {/* Center Links */}
                 <div className="flex gap-4">
                     <Link to="/" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
                         Shop
                     </Link>
                 </div>
 
-                {/* Right Side Icons & Menu */}
                 <div className="flex items-center gap-6">
                     <Link to="/shoppingcart" className="text-2xl hover:scale-110 transition-transform">
                         🛒 {cartCount > 0 && (
-                            <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+                        <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
                                 {cartCount > 99 ? "99+" : cartCount}
                             </span>
-                        )}
-                    </Link> 
-                    
-                    {/* User Menu / Auth Logic */}
+                    )}
+                    </Link>
+
                     {isLoggedIn ? (
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setShowDropdown(!showDropdown)}
                                 className="w-10 h-10 rounded-lg bg-[#342720] text-[#e7b4ff] font-bold flex items-center justify-center border border-[#4e4350] hover:bg-[#40322a] transition focus:outline-none"
                                 title={userData?.name || "Account"}
@@ -108,21 +109,21 @@ export default function MainLayout() {
                                             {userData?.name || "User"}
                                         </p>
                                     </div>
-                                    <Link 
-                                        to="/profile" 
+                                    <Link
+                                        to="/profile"
                                         onClick={() => setShowDropdown(false)}
                                         className="block px-4 py-2 text-sm text-[#d1c5b0] hover:bg-[#342720] hover:text-[#e7b4ff] transition"
                                     >
                                         Profile
                                     </Link>
-                                    <Link 
-                                        to="/orders" 
+                                    <Link
+                                        to="/orders"
                                         onClick={() => setShowDropdown(false)}
                                         className="block px-4 py-2 text-sm text-[#d1c5b0] hover:bg-[#342720] hover:text-[#e7b4ff] transition"
                                     >
                                         My Orders
                                     </Link>
-                                    <button 
+                                    <button
                                         onClick={handleLogout}
                                         className="block w-full text-left px-4 py-2 text-sm text-[#ffb4ab] hover:bg-[#342720] transition"
                                     >
@@ -144,17 +145,11 @@ export default function MainLayout() {
                 </div>
             </header>
 
-            {/* ── BOTTOM ROW (Sidebar + Content) ── */}
             <div className="flex flex-1 overflow-hidden">
-                
-                {/* Left Sidebar */}
                 <Sidebar />
-
-                {/* Main Content Area (Handles its own scrolling now) */}
                 <main className="flex-1 overflow-y-auto relative">
                     <Outlet context={{ refreshCartCount }} />
                 </main>
-
             </div>
         </div>
     );
