@@ -11,12 +11,9 @@ export default function ProductDetail() {
     const [error, setError]       = useState("");
     const [quantity, setQuantity] = useState(1);
     const [cartMsg, setCartMsg]   = useState(null);
-    const [cartCount, setCartCount] = useState(0);
 
     // Auth
-    const [isLoggedIn, setIsLoggedIn]     = useState(false);
-    const [userData, setUserData]         = useState(null);
-    const [showDropdown, setShowDropdown] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     // Reviews (comment only — goes to PM approval)
     const [reviews, setReviews]                 = useState([]);
@@ -37,44 +34,10 @@ export default function ProductDetail() {
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-        const user  = localStorage.getItem("user");
         if (token) {
             setIsLoggedIn(true);
-            if (user) setUserData(JSON.parse(user));
         }
     }, []);
-
-    // Cart count
-    useEffect(() => {
-        if (isLoggedIn) {
-            fetchCartCount();
-        } else {
-            const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-            setCartCount(cart.reduce((sum, item) => sum + parseInt(item.quantity || 1, 10), 0));
-        }
-    }, [isLoggedIn]);
-
-    async function fetchCartCount() {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/api/cart`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            setCartCount(Array.isArray(data) ? data.reduce((sum, item) => sum + parseInt(item.quantity || 1, 10), 0) : 0);
-        } catch { /* silently fail */ }
-    }
-
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("cart");
-        setIsLoggedIn(false);
-        setShowDropdown(false);
-        setUserData(null);
-        setCartCount(0);
-    };
 
     // Fetch product
     useEffect(() => {
@@ -237,7 +200,8 @@ export default function ProductDetail() {
                 });
                 if (response.ok) {
                     setCartMsg("added");
-                    fetchCartCount();
+                    // Note: If you want the brown header to update its cart count, 
+                    // you will need to trigger a global state update or context here.
                 } else {
                     setCartMsg("maxed");
                 }
@@ -264,11 +228,12 @@ export default function ProductDetail() {
                     stock:     product.quantity,
                     quantity:  Math.min(quantity, product.quantity),
                 });
-                setCartCount((c) => c + 1);
             }
             localStorage.setItem("cart", JSON.stringify(cart));
             setCartMsg("added");
             setTimeout(() => setCartMsg(null), 1500);
+            // Note: Dispatch an event here if you need the brown header to update instantly for guests
+            window.dispatchEvent(new Event("cartUpdated")); 
         }
     };
 
@@ -308,51 +273,6 @@ export default function ProductDetail() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-
-            {/* Header */}
-            <header className="w-full bg-white shadow-md relative z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-                    <Link to="/" className="text-xl sm:text-2xl font-bold text-gray-800 flex-shrink-0 hover:text-blue-600 transition">
-                        MyStore
-                    </Link>
-                    <div className="flex-1" />
-                    <nav className="flex items-center space-x-3 sm:space-x-6 flex-shrink-0">
-                        <Link to="/shoppingcart" className="relative text-gray-700 hover:text-blue-600 text-sm sm:text-base">
-                            🛒 <span className="hidden sm:inline">Cart</span>
-                            {cartCount > 0 && (
-                                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
-                                    {cartCount > 99 ? "99+" : cartCount}
-                                </span>
-                            )}
-                        </Link>
-                        {isLoggedIn ? (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowDropdown(!showDropdown)}
-                                    className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 text-sm sm:text-base"
-                                >
-                                    <span className="font-medium">{userData?.name || "My Account"}</span>
-                                    <span className="text-xs">▾</span>
-                                </button>
-                                {showDropdown && (
-                                    <div className="absolute right-0 mt-3 w-48 bg-white border rounded-lg shadow-lg z-50">
-                                        <Link to="/profile" className="block px-4 py-2 hover:bg-gray-100 text-sm">Profile</Link>
-                                        <Link to="/orders"  className="block px-4 py-2 hover:bg-gray-100 text-sm">My Orders</Link>
-                                        <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 text-sm">
-                                            Log Out
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <>
-                                <Link to="/login"  className="text-gray-700 hover:text-blue-600 text-sm sm:text-base">Login</Link>
-                                <Link to="/signup" className="bg-blue-600 text-white px-3 sm:px-5 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base">Sign Up</Link>
-                            </>
-                        )}
-                    </nav>
-                </div>
-            </header>
 
             {/* Breadcrumb */}
             <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-gray-400 flex gap-2">
