@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"medieval-store/config"
+	"medieval-store/models"
 	"medieval-store/routes"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,17 @@ func main() {
 	if err := config.ConnectPostgres(); err != nil {
 		log.Fatalf("Could not initialize Postgres: %v", err)
 	}
+
+	//Run AutoMigrate so a fresh deploy has the required tables
+	if err := config.DB.AutoMigrate(
+		&models.User{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.CartItem{},
+	); err != nil {
+		log.Fatalf("AutoMigrate failed: %v", err)
+	}
+	log.Println("Database schema migrated successfully")
 
 	//Connect to MongoDB database
 	if err := config.ConnectMongo(); err != nil {
