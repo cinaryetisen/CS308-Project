@@ -29,6 +29,7 @@ func main() {
 		&models.Order{},
 		&models.OrderItem{},
 		&models.CartItem{},
+		&models.Refund{},
 	); err != nil {
 		log.Fatalf("AutoMigrate failed: %v", err)
 	}
