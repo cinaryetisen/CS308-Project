@@ -183,3 +183,52 @@ func TestLogin_UserNotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+// ==========================================
+// VALIDATION TESTS
+// ==========================================
+
+func TestSignup_WeakPassword(t *testing.T) {
+	// `binding:"min=6"` on Password — anything shorter must be rejected at validation time.
+	setupTestDB()
+	defer clearTestDB()
+
+	router := setupAuthRouter()
+	signupData := map[string]string{
+		"name":     "Galahad",
+		"email":    "galahad@camelot.com",
+		"password": "short", // 5 chars
+	}
+	jsonValue, _ := json.Marshal(signupData)
+
+	req, _ := http.NewRequest("POST", "/api/signup", bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Verify the user was NOT created
+	var count int64
+	config.DB.Model(&models.User{}).Where("email = ?", "galahad@camelot.com").Count(&count)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestLogin_InvalidEmailFormat(t *testing.T) {
+	// `binding:"email"` on Email — non-email-format input must be rejected before any DB lookup.
+	setupTestDB()
+	defer clearTestDB()
+
+	router := setupAuthRouter()
+	loginData := map[string]string{
+		"email":    "not-an-email-address",
+		"password": "Password123!",
+	}
+	jsonValue, _ := json.Marshal(loginData)
+
+	req, _ := http.NewRequest("POST", "/api/login", bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// errs.AuthInvalidEmail maps to 400 — see backend/errs/registry.go.
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
