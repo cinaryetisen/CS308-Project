@@ -187,3 +187,56 @@ func UpdateProductPrice(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Price updated successfully", "price": input.Price})
 }
+
+// Set a discount percentage on a product and notifie wishlist users.
+func SetProductDiscount(c *gin.Context) {
+	productID := c.Param("id")
+
+	// Use a pointer so 0.0 (removing a discount) is distinguishable from "not provided".
+	var input struct {
+		Discount *float64 `json:"discount" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if *input.Discount < 0 || *input.Discount > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Discount must be between 0 and 100"})
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(productID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+
+	// Fetch current product to get name and price for the notification email.
+	var product models.Product
+	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	_, err = collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"discount": *input.Discount, "updated_at": time.Now()}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update discount"})
+		return
+	}
+
+	if *input.Discount > 0 {
+		// TODO: Notify wishlist users asynchronously when a real discount is applied.
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Discount updated successfully",
+		"discount": *input.Discount,
+	})
+}
