@@ -62,5 +62,9 @@ func SetupRouter() *gin.Engine {
 	product_manager.GET("/reviews/pending", controllers.GetPendingReviews)
 	product_manager.PATCH("/reviews/:id/moderate", controllers.ModerateReview)
 
+	//Sales manager routes
+	sales_manager := router.Group("/api/admin", security.AuthMiddleware(), security.Authorize("sales_manager"))
+	sales_manager.PATCH("/products/:id/price", controllers.UpdateProductPrice)
+
 	return router
 }
