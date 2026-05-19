@@ -151,3 +151,39 @@ func GetProducts(c *gin.Context) {
 	// Send the correctly sorted data to the frontend
 	c.JSON(http.StatusOK, products)
 }
+
+// Update a product's base price (sales manager only).
+func UpdateProductPrice(c *gin.Context) {
+	productID := c.Param("id")
+
+	var input struct {
+		Price float64 `json:"price" binding:"required,gt=0"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(productID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"price": input.Price, "updated_at": time.Now()}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update price"})
+		return
+	}
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Price updated successfully", "price": input.Price})
+}
