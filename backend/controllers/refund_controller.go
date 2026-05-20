@@ -97,3 +97,17 @@ func GetMyRefunds(c *gin.Context) {
 
 	c.JSON(http.StatusOK, refunds)
 }
+
+// Returns refund requests filtered by status (default: pending).
+// GET /api/admin/refunds?status=pending
+func GetRefundRequests(c *gin.Context) {
+	status := c.DefaultQuery("status", "pending")
+
+	var refunds []models.Refund
+	if err := config.DB.Where("status = ?", status).Find(&refunds).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch refund requests"})
+		return
+	}
+
+	c.JSON(http.StatusOK, refunds)
+}

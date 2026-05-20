@@ -66,6 +66,7 @@ func SetupRouter() *gin.Engine {
 	sales_manager := router.Group("/api/admin", security.AuthMiddleware(), security.Authorize("sales_manager"))
 	sales_manager.PATCH("/products/:id/price", controllers.UpdateProductPrice)
 	sales_manager.PATCH("/products/:id/discount", controllers.SetProductDiscount)
+	sales_manager.GET("/refunds", controllers.GetRefundRequests)
 
 	//Customer refund routes
 	protected.POST("/orders/:id/refund", controllers.RequestRefund)
