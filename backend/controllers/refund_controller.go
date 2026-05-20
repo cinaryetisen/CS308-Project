@@ -84,3 +84,16 @@ func RequestRefund(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Refund request submitted successfully", "refund": refund})
 }
+
+// Returns all refund requests submitted by the logged-in customer.
+func GetMyRefunds(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var refunds []models.Refund
+	if err := config.DB.Where("customer_id = ?", userID).Find(&refunds).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your refund requests"})
+		return
+	}
+
+	c.JSON(http.StatusOK, refunds)
+}

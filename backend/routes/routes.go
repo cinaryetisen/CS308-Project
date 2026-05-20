@@ -69,6 +69,7 @@ func SetupRouter() *gin.Engine {
 
 	//Customer refund routes
 	protected.POST("/orders/:id/refund", controllers.RequestRefund)
+	protected.GET("/orders/me/refunds", controllers.GetMyRefunds)
 
 	return router
 }
