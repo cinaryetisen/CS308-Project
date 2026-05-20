@@ -1,13 +1,17 @@
 package controllers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"medieval-store/config"
 	"medieval-store/models"
+	"medieval-store/services"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func RequestRefund(c *gin.Context) {
@@ -110,4 +114,109 @@ func GetRefundRequests(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, refunds)
+}
+
+// ResolveRefund approves or rejects a refund request.
+// PATCH /api/admin/refunds/:id
+// Approve path: restores stock in MongoDB and marks the order as "returned" inside a single transaction.
+func ResolveRefund(c *gin.Context) {
+	refundID := c.Param("id")
+	managerID, _ := c.Get("user_id")
+
+	var input struct {
+		Action string `json:"action" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if input.Action != "approved" && input.Action != "rejected" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Action must be 'approved' or 'rejected'"})
+		return
+	}
+
+	var refund models.Refund
+	if err := config.DB.First(&refund, refundID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Refund request not found"})
+		return
+	}
+	if refund.Status != "pending" {
+		c.JSON(http.StatusConflict, gin.H{"error": "Refund has already been resolved"})
+		return
+	}
+
+	now := time.Now()
+	mid := managerID.(uint)
+	refund.Status = input.Action
+	refund.ResolvedAt = &now
+	refund.ResolverID = &mid
+
+	if input.Action == "approved" {
+		// Wrap PostgreSQL updates + MongoDB stock restore in a single transaction so
+		// a failed MongoDB call rolls back the status change too.
+		tx := config.DB.Begin()
+
+		var orderItem models.OrderItem
+		if err := tx.First(&orderItem, refund.OrderItemID).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Order item not found"})
+			return
+		}
+
+		objID, err := primitive.ObjectIDFromHex(orderItem.ProductID)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid product ID on order item"})
+			return
+		}
+
+		// Restore stock atomically (mirrors checkout_controller.go:122).
+		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+		_, err = collection.UpdateOne(
+			context.Background(),
+			bson.M{"_id": objID},
+			bson.M{"$inc": bson.M{"quantity": orderItem.Quantity}},
+		)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore stock"})
+			return
+		}
+
+		// Mark the parent order as returned.
+		if err := tx.Model(&models.Order{}).Where("id = ?", refund.OrderID).
+			Update("status", "returned").Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			return
+		}
+
+		if err := tx.Save(&refund).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save refund"})
+			return
+		}
+
+		tx.Commit()
+
+		// Send approval email to the customer asynchronously.
+		var customer models.User
+		if config.DB.First(&customer, refund.CustomerID).Error == nil {
+			go services.SendRefundDecisionEmail(customer.Email, customer.Name, true, refund.RefundAmount, "")
+		}
+
+	} else {
+		// Rejection: no stock changes, no transaction needed.
+		if err := config.DB.Save(&refund).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save refund"})
+			return
+		}
+
+		var customer models.User
+		if config.DB.First(&customer, refund.CustomerID).Error == nil {
+			go services.SendRefundDecisionEmail(customer.Email, customer.Name, false, 0, refund.Reason)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Refund " + input.Action, "refund": refund})
 }
