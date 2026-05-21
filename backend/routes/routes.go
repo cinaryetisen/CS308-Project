@@ -30,6 +30,7 @@ func SetupRouter() *gin.Engine {
 	api.GET("/products/:id", controllers.GetProduct)
 	api.GET("/products/:id/reviews", controllers.GetProductReviews)
 	api.GET("/products/:id/ratings", controllers.GetProductRatings)
+	api.GET("/categories", controllers.GetCategories)
 
 	protected := router.Group("/api")
 	protected.Use(security.AuthMiddleware())
@@ -67,6 +68,8 @@ func SetupRouter() *gin.Engine {
 	product_manager.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
 	product_manager.GET("/reviews/pending", controllers.GetPendingReviews)
 	product_manager.PATCH("/reviews/:id/moderate", controllers.ModerateReview)
+	product_manager.POST("/categories", controllers.CreateCategory)
+	product_manager.DELETE("/categories/:id", controllers.DeleteCategory)
 
 	//Sales manager routes
 	sales_manager := router.Group("/api/admin", security.AuthMiddleware(), security.Authorize("sales_manager"))
