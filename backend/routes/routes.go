@@ -83,6 +83,7 @@ func SetupRouter() *gin.Engine {
 	sales_manager.GET("/refunds", controllers.GetRefundRequests)
 	sales_manager.PATCH("/refunds/:id", controllers.ResolveRefund)
 	sales_manager.GET("/revenue", controllers.GetRevenue)
+	sales_manager.GET("/invoices", controllers.GetInvoicesByDateRange)
 
 	//Customer refund routes
 	protected.POST("/orders/:id/refund", controllers.RequestRefund)
