@@ -49,6 +49,7 @@ func SetupRouter() *gin.Engine {
 	protected.POST("/checkout", controllers.Checkout)
 	protected.GET("/orders/me", controllers.GetMyOrders)
 	protected.GET("/orders/:id/invoice", controllers.DownloadInvoice)
+	protected.POST("/orders/:id/cancel", controllers.CancelOrder)
 
 	//Post review
 	protected.POST("/reviews", controllers.CreateReview)
