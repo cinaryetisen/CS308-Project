@@ -1,8 +1,9 @@
 package models
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Product struct {
@@ -14,7 +15,8 @@ type Product struct {
 	Quantity     int                `bson:"quantity" json:"quantity"`
 
 	// Pricing & Sales
-	Price    float64 `bson:"price" json:"price"`
+	Cost     float64 `bson:"cost" json:"cost"`         // NEW: How much the store pays for it
+	Price    float64 `bson:"price" json:"price"`       // How much the customer pays
 	Discount float64 `bson:"discount" json:"discount"` // e.g., 10.0 for 10% off
 
 	// Logistics
