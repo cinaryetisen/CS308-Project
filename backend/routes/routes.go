@@ -70,6 +70,11 @@ func SetupRouter() *gin.Engine {
 	product_manager.PATCH("/reviews/:id/moderate", controllers.ModerateReview)
 	product_manager.POST("/categories", controllers.CreateCategory)
 	product_manager.DELETE("/categories/:id", controllers.DeleteCategory)
+	// NEW: Product CRUD Routes (Tasks B1 - B4)
+	product_manager.POST("/admin/products", controllers.CreateProduct)
+	product_manager.PATCH("/admin/products/:id", controllers.UpdateProduct)
+	product_manager.DELETE("/admin/products/:id", controllers.DeleteProduct)
+	product_manager.PATCH("/admin/products/:id/stock", controllers.UpdateStock)
 
 	//Sales manager routes
 	sales_manager := router.Group("/api/admin", security.AuthMiddleware(), security.Authorize("sales_manager"))
