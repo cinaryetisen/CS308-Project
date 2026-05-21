@@ -8,6 +8,7 @@ import (
 
 	"medieval-store/config"
 	"medieval-store/models"
+	"medieval-store/security"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,10 +21,69 @@ func main() {
 		log.Println("Warning: No .env file found or couldn't load it")
 	}
 
-	// 2. Connect to MongoDB using your existing config
+	// 2. Connect to BOTH Databases
 	if err := config.ConnectMongo(); err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		log.Fatalf("MongoDB connection failed: %v", err)
 	}
+	if err := config.ConnectPostgres(); err != nil {
+		log.Fatalf("PostgreSQL connection failed: %v", err)
+	}
+
+	// ==========================================
+	// PART A: SEED POSTGRESQL (USERS & MANAGERS)
+	// ==========================================
+	log.Println("Migrating and Seeding PostgreSQL Users...")
+
+	// Ensure the users table exists before inserting
+	config.DB.AutoMigrate(&models.User{})
+
+	// Generate a secure password hash using YOUR security package
+	defaultPassword, err := security.HashPassword("password123")
+	if err != nil {
+		log.Fatalf("Failed to hash password: %v", err)
+	}
+
+	// Define our core users for Sprint 5
+	users := []models.User{
+		{
+			Name:        "Sales Manager Admin",
+			Email:       "sales@medievalstore.com",
+			Password:    defaultPassword,
+			Role:        "sales_manager",
+			TaxID:       "TX-999-SALES",
+			HomeAddress: "123 Coinshire Vaults, Market District",
+		},
+		{
+			Name:        "Product Manager Admin",
+			Email:       "product@medievalstore.com",
+			Password:    defaultPassword,
+			Role:        "product_manager",
+			TaxID:       "TX-888-PROD",
+			HomeAddress: "456 Forge Lane, Artisan District",
+		},
+		{
+			Name:        "Test Customer",
+			Email:       "customer@medievalstore.com",
+			Password:    defaultPassword,
+			Role:        "customer",
+			TaxID:       "TX-111-CUST",
+			HomeAddress: "789 Peasant Way, Lower Ward",
+		},
+	}
+
+	// Insert users. FirstOrCreate prevents errors if you run this script multiple times!
+	for _, user := range users {
+		// Note: Your BeforeSave hook in user.go will automatically encrypt the TaxID and HomeAddress here!
+		if err := config.DB.Where(models.User{Email: user.Email}).FirstOrCreate(&user).Error; err != nil {
+			log.Printf("Failed to seed user %s: %v\n", user.Email, err)
+		}
+	}
+	log.Println("Successfully seeded Manager and Customer accounts!")
+
+	// ==========================================
+	// PART B: SEED MONGODB (PRODUCTS)
+	// ==========================================
+	log.Println("Clearing and Seeding MongoDB Products...")
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -34,14 +94,12 @@ func main() {
 		imgBase = "http://localhost:8080/images"
 	}
 
-	// 3. Optional: Clear existing products so you can run this script safely multiple times
-	_, err := collection.DeleteMany(ctx, bson.M{})
-	if err != nil {
+	// Clear existing products
+	if _, err := collection.DeleteMany(ctx, bson.M{}); err != nil {
 		log.Fatalf("Failed to clear existing products: %v", err)
 	}
-	log.Println("Cleared old product data...")
 
-	// 4. Create the Mock Data using your exact Struct
+	// Create the Mock Data with COST included (Cost = Price * 0.6)
 	mockProducts := []interface{}{
 		// --- SPRINT 1 ORIGINAL WEAPONS & SPELLS ---
 		models.Product{
@@ -51,6 +109,7 @@ func main() {
 			SerialNumber: "SN-99812",
 			Description:  "A heavy, two-handed broadsword forged from high-carbon steel. Excellent for close-quarters combat.",
 			Quantity:     15,
+			Cost:         150.00, // 60% of 250
 			Price:        250.00,
 			Discount:     0,
 			Warranty:     "Lifetime (Against dragon fire)",
@@ -70,6 +129,7 @@ func main() {
 			SerialNumber: "SN-11002",
 			Description:  "A parchment inscribed with ancient runes. Instantly heals minor cuts and bruises when read aloud.",
 			Quantity:     100,
+			Cost:         9.30, // 60% of 15.50
 			Price:        15.50,
 			Discount:     10.0,
 			Warranty:     "No refunds once unsealed",
@@ -89,6 +149,7 @@ func main() {
 			SerialNumber: "SN-44332",
 			Description:  "A lightweight cloak that shifts color to match your surroundings. Currently out of stock due to high demand.",
 			Quantity:     0,
+			Cost:         300.00, // 60% of 500
 			Price:        500.00,
 			Discount:     0,
 			Warranty:     "1 Year",
@@ -101,7 +162,7 @@ func main() {
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
 		},
-		// --- NEW WEAPONS ---
+		// --- WEAPONS ---
 		models.Product{
 			ID:           primitive.NewObjectID(),
 			Name:         "Ranger's Longbow",
@@ -109,6 +170,7 @@ func main() {
 			SerialNumber: "SN-77210",
 			Description:  "Crafted from flexible yew wood. Includes a quiver of 20 iron-tipped arrows.",
 			Quantity:     45,
+			Cost:         72.00, // 60% of 120
 			Price:        120.00,
 			Discount:     0,
 			Warranty:     "6 Months",
@@ -128,6 +190,7 @@ func main() {
 			SerialNumber: "SN-99100",
 			Description:  "A sleek, razor-sharp dagger forged from volcanic glass. Perfect for rogues.",
 			Quantity:     8,
+			Cost:         210.00, // 60% of 350
 			Price:        350.00,
 			Discount:     5.0,
 			Warranty:     "No Warranty",
@@ -147,6 +210,7 @@ func main() {
 			SerialNumber: "SN-33112",
 			Description:  "A versatile polearm featuring an axe blade topped with a spike.",
 			Quantity:     20,
+			Cost:         108.00, // 60% of 180
 			Price:        180.00,
 			Discount:     0,
 			Warranty:     "2 Years",
@@ -166,6 +230,7 @@ func main() {
 			SerialNumber: "SN-88221",
 			Description:  "A mechanical marvel that fires bolts with devastating piercing power.",
 			Quantity:     12,
+			Cost:         240.00, // 60% of 400
 			Price:        400.00,
 			Discount:     15.0,
 			Warranty:     "5 Years",
@@ -186,6 +251,7 @@ func main() {
 			SerialNumber: "SN-55441",
 			Description:  "Basic but reliable protection against slashing attacks. Weighs 40 lbs.",
 			Quantity:     30,
+			Cost:         120.00, // 60% of 200
 			Price:        200.00,
 			Discount:     0,
 			Warranty:     "1 Year",
@@ -205,6 +271,7 @@ func main() {
 			SerialNumber: "SN-00001",
 			Description:  "Incredibly rare armor that is as light as a feather but harder than dragon scales.",
 			Quantity:     1,
+			Cost:         3000.00, // 60% of 5000
 			Price:        5000.00,
 			Discount:     0,
 			Warranty:     "Lifetime",
@@ -224,6 +291,7 @@ func main() {
 			SerialNumber: "SN-11223",
 			Description:  "Provides decent wrist and forearm protection without sacrificing mobility.",
 			Quantity:     85,
+			Cost:         27.00, // 60% of 45
 			Price:        45.00,
 			Discount:     0,
 			Warranty:     "30 Days",
@@ -243,6 +311,7 @@ func main() {
 			SerialNumber: "SN-77665",
 			Description:  "A large, teardrop-shaped shield ideal for deflecting arrows and cavalry charges.",
 			Quantity:     0,
+			Cost:         90.00, // 60% of 150
 			Price:        150.00,
 			Discount:     0,
 			Warranty:     "1 Year",
@@ -263,6 +332,7 @@ func main() {
 			SerialNumber: "SN-11009",
 			Description:  "Grants the drinker complete unseen status for exactly 3 minutes. Tastes like mint.",
 			Quantity:     50,
+			Cost:         45.00, // 60% of 75
 			Price:        75.00,
 			Discount:     0,
 			Warranty:     "No Refunds",
@@ -282,6 +352,7 @@ func main() {
 			SerialNumber: "SN-99887",
 			Description:  "A mahogany wand core-infused with a phoenix feather. Contains 50 charges.",
 			Quantity:     5,
+			Cost:         510.00, // 60% of 850
 			Price:        850.00,
 			Discount:     50.0,
 			Warranty:     "Void if exposed to water",
@@ -301,6 +372,7 @@ func main() {
 			SerialNumber: "SN-11011",
 			Description:  "Restores a small amount of magical energy. Essential for apprentice mages.",
 			Quantity:     200,
+			Cost:         6.00, // 60% of 10
 			Price:        10.00,
 			Discount:     0,
 			Warranty:     "No Refunds",
@@ -320,6 +392,7 @@ func main() {
 			SerialNumber: "SN-55667",
 			Description:  "A dusty, leather-bound book containing forgotten history and basic enchantments.",
 			Quantity:     3,
+			Cost:         180.00, // 60% of 300
 			Price:        300.00,
 			Discount:     0,
 			Warranty:     "As-Is Condition",
@@ -340,6 +413,7 @@ func main() {
 			SerialNumber: "SN-22334",
 			Description:  "A silver band set with a ruby. Slightly increases the wearer's stamina.",
 			Quantity:     14,
+			Cost:         132.00, // 60% of 220
 			Price:        220.00,
 			Discount:     20.0,
 			Warranty:     "Lifetime",
@@ -359,6 +433,7 @@ func main() {
 			SerialNumber: "SN-33445",
 			Description:  "Allows the user to glimpse faraway places. Requires intense concentration.",
 			Quantity:     2,
+			Cost:         720.00, // 60% of 1200
 			Price:        1200.00,
 			Discount:     0,
 			Warranty:     "No Warranty (Fragile)",
@@ -378,6 +453,7 @@ func main() {
 			SerialNumber: "SN-77889",
 			Description:  "Wards off minor curses and hexes. Glows faintly when danger is near.",
 			Quantity:     0,
+			Cost:         270.00, // 60% of 450
 			Price:        450.00,
 			Discount:     0,
 			Warranty:     "5 Years",
@@ -397,6 +473,7 @@ func main() {
 			SerialNumber: "SN-99001",
 			Description:  "A 10-piece set of steel tools for opening standard chest and door locks.",
 			Quantity:     40,
+			Cost:         21.00, // 60% of 35
 			Price:        35.00,
 			Discount:     0,
 			Warranty:     "30 Days",
@@ -416,6 +493,7 @@ func main() {
 			SerialNumber: "SN-11111",
 			Description:  "A simple wooden stick wrapped in pitch-soaked rags. Burns for 1 hour.",
 			Quantity:     500,
+			Cost:         1.20, // 60% of 2
 			Price:        2.00,
 			Discount:     0,
 			Warranty:     "No Warranty",
@@ -437,8 +515,9 @@ func main() {
 
 	log.Printf("Successfully seeded %d medieval products into MongoDB!\n", len(result.InsertedIDs))
 
-	// Seed the canonical category list so B6 admin endpoints start populated
-	// and B1/B2 product validation has something to check against.
+	// ==========================================
+	// PART C: SEED MONGODB CATEGORIES
+	// ==========================================
 	categoriesCollection := config.MongoClient.Database(config.MongoDBName).Collection("categories")
 	if _, err := categoriesCollection.DeleteMany(ctx, bson.M{}); err != nil {
 		log.Fatalf("Failed to clear existing categories: %v", err)
