@@ -24,7 +24,7 @@ func setupTestDB() {
 	}
 
 	// Migrate your actual models into this fake database
-	db.AutoMigrate(&models.User{}, &models.Order{}, &models.OrderItem{}, &models.CartItem{})
+	db.AutoMigrate(&models.User{}, &models.Order{}, &models.OrderItem{}, &models.CartItem{}, &models.WishlistItem{}, &models.Refund{})
 
 	// Temporarily override your real PostgreSQL connection with this fake one
 	config.DB = db
@@ -46,4 +46,6 @@ func clearTestDB() {
 	config.DB.Exec("DELETE FROM orders")
 	config.DB.Exec("DELETE FROM order_items")
 	config.DB.Exec("DELETE FROM cart_items")
+	config.DB.Exec("DELETE FROM wishlist_items")
+	config.DB.Exec("DELETE FROM refunds")
 }

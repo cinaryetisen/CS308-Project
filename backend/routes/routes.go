@@ -41,6 +41,11 @@ func SetupRouter() *gin.Engine {
 	protected.PATCH("/cart/item", controllers.AddToCart)
 	protected.POST("/cart/merge", controllers.MergeCarts)
 
+	//Wishlist routes
+	protected.GET("/wishlist", controllers.GetWishlist)
+	protected.POST("/wishlist", controllers.AddToWishlist)
+	protected.DELETE("/wishlist/:productId", controllers.RemoveFromWishlist)
+
 	//User Profile routes
 	protected.GET("/users/me", controllers.GetProfile)
 	protected.PATCH("/users/me", controllers.UpdateProfile)
