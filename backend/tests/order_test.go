@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func setupOrderRouter() *gin.Engine {
@@ -25,8 +28,7 @@ func setupOrderRouter() *gin.Engine {
 	protected.GET("/deliveries", controllers.GetDeliveryList)
 	protected.PATCH("/deliveries/:id/status", controllers.UpdateOrderStatus)
 	protected.GET("/orders/me", controllers.GetMyOrders)
-
-	// NEW: Add the secure PDF route for the tests
+	protected.POST("/orders/:id/cancel", controllers.CancelOrder)
 	protected.GET("/orders/:id/invoice", controllers.DownloadInvoice)
 
 	return router
@@ -197,4 +199,129 @@ func TestDownloadInvoice_Unauthorized(t *testing.T) {
 	// Should be blocked!
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	assert.Contains(t, w.Body.String(), "Unauthorized to view this invoice")
+}
+
+// ==========================================
+// CANCEL ORDER TESTS (D3)
+// ==========================================
+
+func TestCancelOrder_Success(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+	defer clearMongoCollection("products")
+
+	// Seed a product in Mongo with stock 5 so we can confirm it gets restored to 7.
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{
+		ID:       productID,
+		Name:     "Iron Sword",
+		Price:    100.00,
+		Quantity: 5,
+	})
+
+	// Seed a processing order with one line item of qty 2 belonging to user 1.
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1, Status: "processing", DeliveryAddress: "Camelot"})
+	config.DB.Create(&models.OrderItem{OrderID: 1, ProductID: productID.Hex(), Quantity: 2, Price: 100.00})
+
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/1/cancel", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Order cancelled successfully")
+
+	// Status flipped in Postgres
+	var saved models.Order
+	config.DB.First(&saved, 1)
+	assert.Equal(t, "cancelled", saved.Status)
+
+	// Stock restored in Mongo: 5 + 2 = 7
+	var restored models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&restored)
+	assert.Equal(t, 7, restored.Quantity)
+}
+
+func TestCancelOrder_NotOwner(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	// Order belongs to user 1; user 2 attempts to cancel.
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1, Status: "processing"})
+
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/1/cancel", nil)
+	req.Header.Set("Authorization", getTestToken(2, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "does not belong to you")
+
+	// Order untouched
+	var saved models.Order
+	config.DB.First(&saved, 1)
+	assert.Equal(t, "processing", saved.Status)
+}
+
+func TestCancelOrder_AlreadyDelivered(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	// Delivered orders must use the refund flow, not cancel.
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1, Status: "delivered"})
+
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/1/cancel", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Only orders still in processing")
+
+	var saved models.Order
+	config.DB.First(&saved, 1)
+	assert.Equal(t, "delivered", saved.Status)
+}
+
+func TestCancelOrder_InTransitRejected(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	config.DB.Create(&models.Order{ID: 1, CustomerID: 1, Status: "in-transit"})
+
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/1/cancel", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCancelOrder_OrderNotFound(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/9999/cancel", nil)
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCancelOrder_Unauthorized(t *testing.T) {
+	router := setupOrderRouter()
+	req, _ := http.NewRequest("POST", "/api/orders/1/cancel", nil)
+	// No Authorization header
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

@@ -84,6 +84,61 @@ func GetMyOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, orders)
 }
 
+// CancelOrder lets a customer cancel their own order while it is still in "processing". Restocks every line item in MongoDB and flips the order status to "cancelled". In-transit and delivered orders must go through refund flow
+func CancelOrder(c *gin.Context) {
+	orderID := c.Param("id")
+	userID, _ := c.Get("user_id")
+
+	var order models.Order
+	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	if order.CustomerID != userID.(uint) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "This order does not belong to you"})
+		return
+	}
+
+	if order.Status != "processing" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only orders still in processing can be cancelled"})
+		return
+	}
+
+	tx := config.DB.Begin()
+
+	//Restock each item atomically
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	for _, item := range order.Items {
+		objId, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid product ID on order item"})
+			return
+		}
+		if _, err := collection.UpdateOne(
+			context.Background(),
+			bson.M{"_id": objId},
+			bson.M{"$inc": bson.M{"quantity": item.Quantity}},
+		); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore stock"})
+			return
+		}
+	}
+
+	if err := tx.Model(&models.Order{}).Where("id = ?", order.ID).Update("status", "cancelled").Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+		return
+	}
+
+	tx.Commit()
+
+	order.Status = "cancelled"
+	c.JSON(http.StatusOK, gin.H{"message": "Order cancelled successfully", "order": order})
+}
+
 func DownloadInvoice(c *gin.Context) {
 	orderID := c.Param("id")
 	userID, _ := c.Get("user_id")
