@@ -7,6 +7,7 @@ import (
 
 	"medieval-store/config"
 	"medieval-store/models"
+	"medieval-store/services"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -201,8 +202,7 @@ func ResolveRefund(c *gin.Context) {
 		// Send approval email to the customer asynchronously.
 		var customer models.User
 		if config.DB.First(&customer, refund.CustomerID).Error == nil {
-			// TODO: Implement SendRefundDecisionEmail
-			//go services.SendRefundDecisionEmail(customer.Email, customer.Name, true, refund.RefundAmount, "")
+			go services.SendRefundDecisionEmail(customer.Email, customer.Name, true, refund.RefundAmount, "")
 		}
 
 	} else {
@@ -214,8 +214,7 @@ func ResolveRefund(c *gin.Context) {
 
 		var customer models.User
 		if config.DB.First(&customer, refund.CustomerID).Error == nil {
-			// TODO: Implement SendRefundDecisionEmail
-			// go services.SendRefundDecisionEmail(customer.Email, customer.Name, false, 0, refund.Reason)
+			go services.SendRefundDecisionEmail(customer.Email, customer.Name, false, 0, refund.Reason)
 		}
 	}
 

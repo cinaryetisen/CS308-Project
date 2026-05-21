@@ -79,3 +79,43 @@ func SendDiscountNotificationEmail(recipientEmail, recipientName, productName st
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	return smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{recipientEmail}, body.Bytes())
 }
+
+func SendRefundDecisionEmail(email, userName string, approved bool, refundAmount float64, reason string) error {
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USERNAME")
+	smtpPass := os.Getenv("SMTP_PASSWORD")
+	fromEmail := os.Getenv("SMTP_FROM_EMAIL")
+
+	var subject, body string
+	if approved {
+		subject = "Your refund has been approved"
+		body = fmt.Sprintf(
+			"Hello %s,\n\nYour refund request has been approved.\n\n"+
+				"Refund amount: $%.2f\n\n"+
+				"The amount will be returned to your account.\n\n"+
+				"- The Medieval Store Team",
+			userName, refundAmount,
+		)
+	} else {
+		subject = "Update on your refund request"
+		body = fmt.Sprintf(
+			"Hello %s,\n\nUnfortunately, your refund request has been rejected.\n\n"+
+				"Reason: %s\n\n"+
+				"If you have questions, please contact our support team.\n\n"+
+				"- The Medieval Store Team",
+			userName, reason,
+		)
+	}
+
+	msg := new(bytes.Buffer)
+	msg.WriteString(fmt.Sprintf("From: %s\r\n", fromEmail))
+	msg.WriteString(fmt.Sprintf("To: %s\r\n", email))
+	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	msg.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n\r\n")
+	msg.WriteString(body)
+	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+	return smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{email}, msg.Bytes())
+}
