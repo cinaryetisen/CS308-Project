@@ -436,4 +436,26 @@ func main() {
 	}
 
 	log.Printf("Successfully seeded %d medieval products into MongoDB!\n", len(result.InsertedIDs))
+
+	// Seed the canonical category list so B6 admin endpoints start populated
+	// and B1/B2 product validation has something to check against.
+	categoriesCollection := config.MongoClient.Database(config.MongoDBName).Collection("categories")
+	if _, err := categoriesCollection.DeleteMany(ctx, bson.M{}); err != nil {
+		log.Fatalf("Failed to clear existing categories: %v", err)
+	}
+	log.Println("Cleared old category data...")
+
+	now := time.Now()
+	mockCategories := []interface{}{
+		models.Category{Name: "Accessories", CreatedAt: now},
+		models.Category{Name: "Apparel", CreatedAt: now},
+		models.Category{Name: "Spells", CreatedAt: now},
+		models.Category{Name: "Weapons", CreatedAt: now},
+	}
+
+	catResult, err := categoriesCollection.InsertMany(ctx, mockCategories)
+	if err != nil {
+		log.Fatalf("Failed to insert mock categories: %v", err)
+	}
+	log.Printf("Successfully seeded %d categories into MongoDB!\n", len(catResult.InsertedIDs))
 }
