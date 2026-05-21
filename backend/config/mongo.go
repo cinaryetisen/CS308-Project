@@ -54,5 +54,17 @@ func ConnectMongo() error {
 		log.Printf("Warning: failed to ensure unique ratings index: %v\n", idxErr)
 	}
 
+	// Ensure category names are unique so the catalog can't end up with duplicate
+	// "Weapons" entries. Same idempotent CreateOne pattern as the ratings index above.
+	catIdxCtx, catIdxCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer catIdxCancel()
+	_, catIdxErr := client.Database(MongoDBName).Collection("categories").Indexes().CreateOne(catIdxCtx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName("uniq_category_name"),
+	})
+	if catIdxErr != nil {
+		log.Printf("Warning: failed to ensure unique categories index: %v\n", catIdxErr)
+	}
+
 	return nil
 }
