@@ -33,6 +33,7 @@ type Product struct {
 	ReviewCount int     `bson:"review_count" json:"review_count"` // e.g., 12 reviews
 
 	// Timestamps
-	CreatedAt time.Time `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
+	CreatedAt time.Time  `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `bson:"updated_at" json:"updated_at"`
+	DeletedAt *time.Time `bson:"deleted_at,omitempty" json:"deleted_at,omitempty"` // NEW: For soft deletes`
 }
