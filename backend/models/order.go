@@ -2,6 +2,10 @@ package models
 
 import (
 	"time"
+
+	"medieval-store/security"
+
+	"gorm.io/gorm"
 )
 
 // Order represents the overall delivery and invoice
@@ -29,4 +33,34 @@ type OrderItem struct {
 	ProductID string  `gorm:"not null" json:"product_id"` // Change to uint if your Product ID is an integer
 	Quantity  int     `gorm:"not null" json:"quantity"`
 	Price     float64 `gorm:"not null" json:"price"` // Price at the time of purchase (important for discounts)
+}
+
+// BeforeSave encrypts the delivery address before it hits the DB column.
+func (o *Order) BeforeSave(tx *gorm.DB) error {
+	enc, err := security.Encrypt(o.DeliveryAddress)
+	if err != nil {
+		return err
+	}
+	o.DeliveryAddress = enc
+	return nil
+}
+
+// AfterSave decrypts the address back into the struct so callers keep their plaintext copy.
+func (o *Order) AfterSave(tx *gorm.DB) error {
+	dec, err := security.Decrypt(o.DeliveryAddress)
+	if err != nil {
+		return err
+	}
+	o.DeliveryAddress = dec
+	return nil
+}
+
+// AfterFind decrypts on read so handlers never see ciphertext.
+func (o *Order) AfterFind(tx *gorm.DB) error {
+	dec, err := security.Decrypt(o.DeliveryAddress)
+	if err != nil {
+		return err
+	}
+	o.DeliveryAddress = dec
+	return nil
 }

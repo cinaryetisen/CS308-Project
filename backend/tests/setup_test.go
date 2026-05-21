@@ -5,6 +5,7 @@ import (
 	"log"
 	"medieval-store/config"
 	"medieval-store/models"
+	"os"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,6 +17,11 @@ import (
 func setupTestDB() {
 	if err := godotenv.Load("../.env"); err != nil {
 		log.Println("Warning: Could not find ../.env file. Relying on system environment variables.")
+	}
+	// Tests need a fixed DATA_ENC_KEY so the F1 encryption hooks work.
+	// Production sets this in .env; here we fall back to an all-zero 32-byte key.
+	if os.Getenv("DATA_ENC_KEY") == "" {
+		os.Setenv("DATA_ENC_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 	}
 	// "file::memory:?cache=shared" tells SQLite to run entirely in RAM
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
