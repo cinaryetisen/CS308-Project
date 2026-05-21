@@ -54,3 +54,28 @@ func SendInvoiceEmail(recipientEmail string, pdfBytes []byte) error {
 
 	return err
 }
+
+func SendDiscountNotificationEmail(recipientEmail, recipientName, productName string, originalPrice, discount float64) error {
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USERNAME")
+	smtpPass := os.Getenv("SMTP_PASSWORD")
+	fromEmail := os.Getenv("SMTP_FROM_EMAIL")
+
+	salePrice := originalPrice * (1 - discount/100)
+
+	body := new(bytes.Buffer)
+	body.WriteString(fmt.Sprintf("From: %s\r\n", fromEmail))
+	body.WriteString(fmt.Sprintf("To: %s\r\n", recipientEmail))
+	body.WriteString("Subject: A wishlist item is on sale\r\n")
+	body.WriteString("MIME-Version: 1.0\r\n")
+	body.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n\r\n")
+	body.WriteString(fmt.Sprintf("Hi %s,\r\n\r\n", recipientName))
+	body.WriteString(fmt.Sprintf("Great news! \"%s\" from your wishlist is now %.0f%% off.\r\n", productName, discount))
+	body.WriteString(fmt.Sprintf("Was: %.2f gold pieces\r\n", originalPrice))
+	body.WriteString(fmt.Sprintf("Now: %.2f gold pieces\r\n\r\n", salePrice))
+	body.WriteString("Visit the Medieval Store to claim yours before it's gone!\r\n")
+
+	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+	return smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{recipientEmail}, body.Bytes())
+}

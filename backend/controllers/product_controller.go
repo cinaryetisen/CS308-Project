@@ -8,6 +8,7 @@ import (
 
 	"medieval-store/config"
 	"medieval-store/models"
+	"medieval-store/services"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -232,7 +233,7 @@ func SetProductDiscount(c *gin.Context) {
 	}
 
 	if *input.Discount > 0 {
-		// TODO: Notify wishlist users asynchronously when a real discount is applied.
+		go services.NotifyWishlistOfDiscount(product, *input.Discount)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
