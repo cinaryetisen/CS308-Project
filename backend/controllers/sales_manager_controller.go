@@ -138,3 +138,38 @@ func GetRevenue(c *gin.Context) {
 	// Return data to frontend
 	c.JSON(http.StatusOK, response)
 }
+
+// Returns all orders (with items) created within a date range.
+func GetInvoicesByDateRange(c *gin.Context) {
+	from := c.Query("from")
+	to := c.Query("to")
+
+	if from == "" || to == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "'from' and 'to' query parameters are required (YYYY-MM-DD)"})
+		return
+	}
+
+	fromTime, err := time.Parse("2006-01-02", from)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'from' date. Use YYYY-MM-DD"})
+		return
+	}
+	toTime, err := time.Parse("2006-01-02", to)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'to' date. Use YYYY-MM-DD"})
+		return
+	}
+
+	// Include the entire final day.
+	toTime = toTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	var orders []models.Order
+	if err := config.DB.Preload("Items").
+		Where("created_at BETWEEN ? AND ?", fromTime, toTime).
+		Find(&orders).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invoices"})
+		return
+	}
+
+	c.JSON(http.StatusOK, orders)
+}
