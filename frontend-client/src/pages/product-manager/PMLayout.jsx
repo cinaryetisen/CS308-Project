@@ -14,6 +14,8 @@ function getTokenPayload() {
 const NAV_LINKS = [
     { to: "/pm/deliveries", label: "📦 Deliveries" },
     { to: "/pm/reviews",    label: "💬 Reviews" },
+    { to: "/pm/products",   label: "🗡️ Products" },
+    { to: "/pm/categories", label: "🗂️ Categories" },
 ];
 
 export default function PMLayout() {
