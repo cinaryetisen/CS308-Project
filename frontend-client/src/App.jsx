@@ -18,6 +18,7 @@ import RevenueManager from "./pages/sales-manager/RevenueManager";
 import MainLayout from './layouts/MainLayout';
 import Invoice from './pages/Invoice';
 import RefundManager from "./pages/sales-manager/RefundManager";
+import Wishlist from './pages/Wishlist';
 import InvoiceList from "./pages/sales-manager/InvoiceList";
 
 
@@ -34,7 +35,8 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/orders" element={<MyOrders />} />
             <Route path="/payment" element={<Payment />} />
-            <Route path="/invoice/:orderId" element={<Invoice />} />
+            <Route path="/invoice/:orderId" element={<Invoice />}/>
+            <Route path="/wishlist" element={<Wishlist />} />
         </Route>
 
         {/* 3. Keep pages that SHOULDN'T have the header outside the wrapper */}

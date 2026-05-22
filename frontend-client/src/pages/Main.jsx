@@ -16,6 +16,7 @@ export default function Main() {
     const [searchQuery, setSearchQuery]   = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [cartFeedback, setCartFeedback] = useState({});
+    const [wishlist, setWishlist]         = useState([]);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -26,6 +27,25 @@ export default function Main() {
     useEffect(() => {
         if (localStorage.getItem("token")) setIsLoggedIn(true);
     }, []);
+
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        const fetchWishlist = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res   = await fetch(`${API_URL}/api/wishlist`, {
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setWishlist(Array.isArray(data) ? data.map((item) => item.id) : []);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchWishlist();
+    }, [isLoggedIn]);
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -49,6 +69,37 @@ export default function Main() {
         };
         fetchProducts();
     }, [API_URL, debouncedSearch, sortOption, categoryParam]);
+
+    const toggleWishlist = async (e, productId) => {
+        e.stopPropagation();
+        if (!isLoggedIn) {
+            navigate("/login");
+            return;
+        }
+        const isWishlisted = wishlist.includes(productId);
+        try {
+            const token = localStorage.getItem("token");
+            if (isWishlisted) {
+                await fetch(`${API_URL}/api/wishlist/${productId}`, {
+                    method:  "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+                setWishlist((prev) => prev.filter((id) => id !== productId));
+            } else {
+                await fetch(`${API_URL}/api/wishlist`, {
+                    method:  "POST",
+                    headers: {
+                        "Content-Type":  "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ product_id: productId }),
+                });
+                setWishlist((prev) => [...prev, productId]);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const addToCart = async (e, product) => {
         e.stopPropagation();
@@ -129,6 +180,7 @@ export default function Main() {
                             const outOfStock      = product.quantity === 0;
                             const feedback        = cartFeedback[product.id];
                             const discountedPrice = product.discount > 0 ? product.price * (1 - product.discount / 100) : null;
+                            const isWishlisted    = wishlist.includes(product.id);
 
                             return (
                                 <div
@@ -137,6 +189,17 @@ export default function Main() {
                                     className="group relative overflow-hidden bg-[#251912] border border-[#342720] hover:border-[#8a47af] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg p-4 transition-all duration-300 cursor-pointer flex flex-col"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-r from-[#e7b4ff]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                                    {/* Wishlist button */}
+                                    <button
+                                        onClick={(e) => toggleWishlist(e, product.id)}
+                                        className="absolute top-3 left-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-[#1a0f0a]/70 border border-[#342720] hover:border-[#8a47af] transition-all"
+                                        title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                                    >
+                                        <span className={`text-sm ${isWishlisted ? "text-[#e7b4ff]" : "text-[#9a8c9b]"}`}>
+                                            {isWishlisted ? "♥" : "♡"}
+                                        </span>
+                                    </button>
 
                                     <div className="relative z-10 aspect-[4/5] mb-4 overflow-hidden rounded border border-[#342720]/50">
                                         <img src={product.image_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -153,7 +216,6 @@ export default function Main() {
                                     <span className="relative z-10 text-[10px] uppercase tracking-widest text-[#add461] mb-1">{product.category || "Artifact"}</span>
                                     <h3 className="relative z-10 text-lg font-serif text-[#f5ded3] line-clamp-2">{product.name}</h3>
 
-                                    {/* Rating — 1 decimal place */}
                                     <div className="relative z-10 text-sm text-[#9a8c9b] mt-1">
                                         <span className="text-[#add461]">⭐ {Number(product.rating).toFixed(1)}</span> ({product.review_count} reviews)
                                     </div>
