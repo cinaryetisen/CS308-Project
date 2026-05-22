@@ -37,7 +37,6 @@ export default function MainLayout() {
         if (token) {
             setIsLoggedIn(true);
 
-            // Always fetch fresh user data from the API so the name is always up to date
             fetch(`${API_URL}/api/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
@@ -72,23 +71,30 @@ export default function MainLayout() {
 
             <header className="shrink-0 w-full z-50 bg-[#1c110b] border-b border-[#342720] px-6 py-4 flex justify-between items-center">
 
-                <h2 className="text-xl font-serif text-[#e7b4ff]">
+                {/* Title — clicks to home */}
+                <Link to="/" className="text-xl font-serif text-[#e7b4ff] hover:text-[#f5ded3] transition-colors">
                     The Vault
-                </h2>
-
-                <div className="flex gap-4">
-                    <Link to="/" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
-                        Shop
-                    </Link>
-                </div>
+                </Link>
 
                 <div className="flex items-center gap-6">
-                    <Link to="/shoppingcart" className="text-2xl hover:scale-110 transition-transform">
-                        🛒 {cartCount > 0 && (
-                        <span className="relative -top-8 -right-4 bg-purple-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+
+                    {/* Wishlist heart */}
+                    <Link
+                        to="/wishlist"
+                        className="text-2xl hover:scale-110 transition-transform flex items-center justify-center"
+                        title="Wishlist"
+                    >
+                        🤍
+                    </Link>
+
+                    {/* Cart */}
+                    <Link to="/shoppingcart" className="relative hover:scale-110 transition-transform flex items-center justify-center">
+                        <span className="text-2xl">🛒</span>
+                        {cartCount > 0 && (
+                            <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center shadow-md px-0.5">
                                 {cartCount > 99 ? "99+" : cartCount}
                             </span>
-                    )}
+                        )}
                     </Link>
 
                     {isLoggedIn ? (
@@ -122,6 +128,13 @@ export default function MainLayout() {
                                         className="block px-4 py-2 text-sm text-[#d1c5b0] hover:bg-[#342720] hover:text-[#e7b4ff] transition"
                                     >
                                         My Orders
+                                    </Link>
+                                    <Link
+                                        to="/wishlist"
+                                        onClick={() => setShowDropdown(false)}
+                                        className="block px-4 py-2 text-sm text-[#d1c5b0] hover:bg-[#342720] hover:text-[#e7b4ff] transition"
+                                    >
+                                        Wishlist
                                     </Link>
                                     <button
                                         onClick={handleLogout}
