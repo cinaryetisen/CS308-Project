@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_URL;
 
 const EMPTY_FORM = {
     name: "", model: "", serial_number: "", description: "",
-    quantity: 0, price: "", category: "", distributor: "",
+    quantity: 0, category: "", distributor: "",
     warranty: "", image_url: "", tags: "",
 };
 
@@ -49,10 +49,6 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }) {
                     <textarea className={`${inputClass} resize-none`} rows={3} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Product description" />
                 </div>
                 <div>
-                    <label className={labelClass}>Price *</label>
-                    <input className={inputClass} type="number" min="0.01" step="0.01" value={form.price} onChange={e => set("price", e.target.value)} placeholder="0.00" />
-                </div>
-                <div>
                     <label className={labelClass}>Quantity</label>
                     <input className={inputClass} type="number" min="0" value={form.quantity} onChange={e => set("quantity", parseInt(e.target.value) || 0)} placeholder="0" />
                 </div>
@@ -86,7 +82,6 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }) {
                 <button
                     onClick={() => onSubmit({
                         ...form,
-                        price: parseFloat(form.price),
                         quantity: parseInt(form.quantity) || 0,
                         tags: typeof form.tags === "string"
                             ? form.tags.split(",").map(t => t.trim()).filter(Boolean)
@@ -330,7 +325,7 @@ export default function ProductManager() {
                                 </div>
                             </td>
                             <td className="px-4 py-3 text-gray-600">{product.category}</td>
-                            <td className="px-4 py-3 text-gray-900 font-medium text-right">${Number(product.price).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-gray-900 font-medium text-right">${Number(product.price).toFixed(2)}<span className="block text-xs text-gray-400 font-normal">Set by Sales</span></td>
                             <td className="px-4 py-3 text-center">
                                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                                         product.quantity === 0 ? "bg-red-100 text-red-700"
