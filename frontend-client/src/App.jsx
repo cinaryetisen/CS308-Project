@@ -10,6 +10,8 @@ import Payment from './pages/Payment';
 import PMLayout from "./pages/product-manager/PMLayout";
 import DeliveryManager from "./pages/product-manager/DeliveryManager";
 import ReviewManager from "./pages/product-manager/ReviewManager";
+import ProductManager from "./pages/product-manager/ProductManager";
+import CategoryManager from "./pages/product-manager/CategoryManager";
 import MainLayout from './layouts/MainLayout';
 import Invoice from './pages/Invoice';
 
@@ -38,6 +40,8 @@ function App() {
         <Route path="/pm" element={<PMLayout />}>
           <Route path="deliveries" element={<DeliveryManager />} />
           <Route path="reviews" element={<ReviewManager />} />
+          <Route path="products" element={<ProductManager />} />
+          <Route path="categories" element={<CategoryManager />} />
         </Route>
 
       </Routes>
