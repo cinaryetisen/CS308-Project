@@ -16,6 +16,9 @@ export default function ProductDetail() {
 
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+    const [isWishlisted, setIsWishlisted]       = useState(false);
+    const [wishlistLoading, setWishlistLoading] = useState(false);
+
     const [reviews, setReviews]                   = useState([]);
     const [reviewsLoading, setReviewsLoading]     = useState(true);
     const [reviewError, setReviewError]           = useState("");
@@ -107,6 +110,27 @@ export default function ProductDetail() {
         fetchMyRating();
     }, [id, isLoggedIn]);
 
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        const fetchWishlistStatus = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res   = await fetch(`${API_URL}/api/wishlist`, {
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsWishlisted(
+                        Array.isArray(data) && data.some((item) => String(item.id) === String(id))
+                    );
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchWishlistStatus();
+    }, [id, isLoggedIn]);
+
     const handleSubmitRating = async (star) => {
         if (!isLoggedIn || submittingRating) return;
         setMyRating(star);
@@ -168,6 +192,36 @@ export default function ProductDetail() {
             setReviewError("Server error. Please try again.");
         } finally {
             setSubmittingReview(false);
+        }
+    };
+
+    const handleToggleWishlist = async () => {
+        if (!isLoggedIn) { navigate("/login"); return; }
+        if (wishlistLoading) return;
+        setWishlistLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            if (isWishlisted) {
+                await fetch(`${API_URL}/api/wishlist/${id}`, {
+                    method:  "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+                setIsWishlisted(false);
+            } else {
+                await fetch(`${API_URL}/api/wishlist`, {
+                    method:  "POST",
+                    headers: {
+                        "Content-Type":  "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ product_id: id }),
+                });
+                setIsWishlisted(true);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setWishlistLoading(false);
         }
     };
 
@@ -290,13 +344,11 @@ export default function ProductDetail() {
                         {/* LEFT — Image */}
                         <div className="md:w-1/2 relative overflow-hidden border-b md:border-b-0 md:border-r border-[#342720]">
 
-                            {/* Stock badge */}
                             <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm z-10
                                 ${outOfStock ? 'bg-[#93000a] text-[#ffdad6]' : 'bg-[#add461] text-[#131f00]'}`}>
                                 {outOfStock ? "Out of Stock" : "In Stock"}
                             </div>
 
-                            {/* Discount badge */}
                             {discountedPrice && (
                                 <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#e7b4ff] text-[#300049] shadow-sm z-10">
                                     -{product.discount}%
@@ -414,6 +466,27 @@ export default function ProductDetail() {
                                 </div>
                             )}
 
+                            {/* Wishlist button */}
+                            <button
+                                onClick={handleToggleWishlist}
+                                disabled={wishlistLoading}
+                                className={`w-full py-2.5 rounded font-semibold border transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-50 ${
+                                    isWishlisted
+                                        ? "border-[#8a47af] bg-[#8a47af]/10 text-[#e7b4ff] hover:bg-[#93000a]/10 hover:border-[#93000a] hover:text-[#ffdad6]"
+                                        : "border-[#342720] text-[#9a8c9b] hover:border-[#8a47af] hover:text-[#e7b4ff]"
+                                }`}
+                            >
+                                <span className="text-lg leading-none">
+                                    {isWishlisted ? "♥" : "♡"}
+                                </span>
+                                {wishlistLoading
+                                    ? "Saving…"
+                                    : isWishlisted
+                                        ? "Saved to Wishlist"
+                                        : "Add to Wishlist"}
+                            </button>
+
+                            {/* Add to Cart */}
                             <button
                                 onClick={handleAddToCart}
                                 disabled={outOfStock}
