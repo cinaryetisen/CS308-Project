@@ -11,6 +11,12 @@ const STATUS_STYLES = {
     returned:     "bg-gray-100 text-gray-600",
 };
 
+const REFUND_STATUS_STYLES = {
+    pending:  "bg-yellow-100 text-yellow-700",
+    approved: "bg-green-100 text-green-700",
+    rejected: "bg-red-100 text-red-700",
+};
+
 const STATUS_STEPS = ["processing", "in-transit", "delivered"];
 
 function StatusBadge({ status }) {
@@ -54,57 +60,132 @@ function StatusTracker({ status }) {
     );
 }
 
-function ItemsTable({ items, productMap }) {
+// Refund form shown per item in a delivered order
+function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmitted }) {
+    const [reason, setReason]       = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [msg, setMsg]             = useState(null);
+
+    const existingRefund = existingRefunds.find((r) => r.order_item_id === item.id);
+    const product        = productMap[item.product_id];
+
+    if (existingRefund) {
+        const refundStyle = REFUND_STATUS_STYLES[existingRefund.status] || "bg-gray-100 text-gray-600";
+        return (
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg border border-gray-100 text-sm">
+                <span className="text-gray-500">Refund requested</span>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${refundStyle}`}>
+                    {existingRefund.status.charAt(0).toUpperCase() + existingRefund.status.slice(1)}
+                </span>
+            </div>
+        );
+    }
+
+    async function handleSubmit() {
+        if (!reason.trim()) { setMsg({ type: "error", text: "Please enter a reason." }); return; }
+        setSubmitting(true);
+        setMsg(null);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_BASE}/api/orders/${orderId}/refund`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({ order_item_id: item.id, reason }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to submit refund request.");
+            }
+            setMsg({ type: "success", text: "Refund request submitted!" });
+            setReason("");
+            onRefundSubmitted();
+        } catch (err) {
+            setMsg({ type: "error", text: err.message });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <div className="mt-2 flex flex-col gap-2">
+            <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={`Reason for returning ${product?.name || "this item"}...`}
+                rows={2}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {msg && (
+                <p className={`text-xs ${msg.type === "error" ? "text-red-600" : "text-green-600"}`}>
+                    {msg.text}
+                </p>
+            )}
+            <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="self-end text-xs font-semibold px-4 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            >
+                {submitting ? "Submitting…" : "Request Refund"}
+            </button>
+        </div>
+    );
+}
+
+function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
+    const items = order.items;
+    const isDelivered = order.status === "delivered";
+
     if (!items || items.length === 0) {
         return <p className="text-sm text-gray-400 px-5 py-4 italic">No item details available.</p>;
     }
 
     return (
-        <table className="w-full text-sm">
-            <thead>
-            <tr className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
-                <th className="text-left px-5 py-2.5 font-semibold">Product</th>
-                <th className="text-center px-5 py-2.5 font-semibold">Qty</th>
-                <th className="text-right px-5 py-2.5 font-semibold">Unit Price</th>
-                <th className="text-right px-5 py-2.5 font-semibold">Subtotal</th>
-                <th className="px-5 py-2.5"></th>
-            </tr>
-            </thead>
-            <tbody>
+        <div className="w-full text-sm">
+            {/* Table header */}
+            <div className="grid grid-cols-4 bg-gray-50 text-gray-400 text-xs uppercase tracking-wide px-5 py-2.5 font-semibold">
+                <span>Product</span>
+                <span className="text-center">Qty</span>
+                <span className="text-right">Unit Price</span>
+                <span className="text-right">Subtotal</span>
+            </div>
+
             {items.map((item) => {
                 const product = productMap[item.product_id];
                 return (
-                    <tr key={item.id} className="border-t border-gray-100">
-                        <td className="px-5 py-3">
-                            {product
-                                ? <span className="text-gray-800 font-medium">{product.name}</span>
-                                : <span className="text-gray-400 italic text-xs">{item.product_id}</span>
-                            }
-                        </td>
-                        <td className="px-5 py-3 text-gray-600 text-center">{item.quantity}</td>
-                        <td className="px-5 py-3 text-gray-600 text-right">${item.price.toFixed(2)}</td>
-                        <td className="px-5 py-3 text-gray-900 font-semibold text-right">
-                            ${(item.price * item.quantity).toFixed(2)}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                            {product && (
-                                <Link
-                                    to={`/products/${item.product_id}`}
-                                    className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
-                                >
-                                    View item
-                                </Link>
-                            )}
-                        </td>
-                    </tr>
+                    <div key={item.id} className="border-t border-gray-100 px-5 py-3 flex flex-col gap-2">
+                        <div className="grid grid-cols-4 items-center">
+                            <span className="text-gray-800 font-medium">
+                                {product
+                                    ? <Link to={`/products/${item.product_id}`} className="hover:text-blue-600 transition-colors">{product.name}</Link>
+                                    : <span className="text-gray-400 italic text-xs">{item.product_id}</span>
+                                }
+                            </span>
+                            <span className="text-gray-600 text-center">{item.quantity}</span>
+                            <span className="text-gray-600 text-right">${item.price.toFixed(2)}</span>
+                            <span className="text-gray-900 font-semibold text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+
+                        {/* Refund form — only for delivered orders */}
+                        {isDelivered && (
+                            <RefundForm
+                                orderId={order.delivery_id}
+                                item={item}
+                                productMap={productMap}
+                                existingRefunds={existingRefunds}
+                                onRefundSubmitted={onRefundSubmitted}
+                            />
+                        )}
+                    </div>
                 );
             })}
-            </tbody>
-        </table>
+        </div>
     );
 }
 
-function OrderCard({ order, isCurrent, productMap }) {
+function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubmitted }) {
     const [expanded, setExpanded] = useState(false);
     const date = new Date(order.created_at).toLocaleDateString("en-US", {
         year: "numeric", month: "short", day: "numeric",
@@ -135,7 +216,7 @@ function OrderCard({ order, isCurrent, productMap }) {
                 </div>
             </div>
 
-            {/* Status tracker — current orders only */}
+            {/* Status tracker */}
             {isCurrent && STATUS_STEPS.includes(order.status) && (
                 <div className="px-5 pb-2 border-t border-blue-50 pt-3">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
@@ -153,10 +234,28 @@ function OrderCard({ order, isCurrent, productMap }) {
                 <p className="text-sm text-gray-700 mt-0.5">{order.delivery_address}</p>
             </div>
 
+            {/* Refund note for delivered orders */}
+            {order.status === "delivered" && !expanded && (
+                <div className="px-5 pb-3">
+                    <p className="text-xs text-gray-400">
+                        Need to return an item?{" "}
+                        <button onClick={() => setExpanded(true)} className="text-blue-600 hover:underline">
+                            View items
+                        </button>{" "}
+                        to request a refund.
+                    </p>
+                </div>
+            )}
+
             {/* Expandable items */}
             {expanded && (
                 <div className="border-t border-gray-100">
-                    <ItemsTable items={order.items} productMap={productMap} />
+                    <ItemsTable
+                        order={order}
+                        productMap={productMap}
+                        existingRefunds={existingRefunds}
+                        onRefundSubmitted={onRefundSubmitted}
+                    />
                 </div>
             )}
         </div>
@@ -186,18 +285,30 @@ function Section({ title, count, children, emptyIcon, emptyTitle, emptyText }) {
 }
 
 export default function MyOrders() {
-    const [orders, setOrders]         = useState([]);
-    const [productMap, setProductMap] = useState({});
-    const [loading, setLoading]       = useState(true);
-    const [error, setError]           = useState(null);
+    const [orders, setOrders]             = useState([]);
+    const [productMap, setProductMap]     = useState({});
+    const [refunds, setRefunds]           = useState([]);
+    const [loading, setLoading]           = useState(true);
+    const [error, setError]               = useState(null);
     const navigate = useNavigate();
+
+    async function fetchRefunds() {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_BASE}/api/orders/me/refunds`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            setRefunds(data || []);
+        } catch { /* silently fail */ }
+    }
 
     useEffect(() => {
         async function fetchAll() {
             try {
                 const token = localStorage.getItem("token");
 
-                // 1. Fetch orders (Items are preloaded by the backend)
                 const res = await fetch(`${API_BASE}/api/orders/me`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -206,8 +317,6 @@ export default function MyOrders() {
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
 
-                // 2. Collect all unique product IDs across every order
-                // Filter to valid 24-char MongoDB ObjectID hex strings only
                 const isValidId = (id) => typeof id === "string" && /^[a-f0-9]{24}$/i.test(id);
                 const uniqueIds = [
                     ...new Set(
@@ -216,23 +325,23 @@ export default function MyOrders() {
                     ),
                 ];
 
-                if (uniqueIds.length === 0) return;
+                if (uniqueIds.length > 0) {
+                    const results = await Promise.all(
+                        uniqueIds.map(async (pid) => {
+                            try {
+                                const r = await fetch(`${API_BASE}/api/products/${pid}`);
+                                if (!r.ok) return [pid, null];
+                                const p = await r.json();
+                                return [pid, p];
+                            } catch {
+                                return [pid, null];
+                            }
+                        })
+                    );
+                    setProductMap(Object.fromEntries(results));
+                }
 
-                // 3. Fetch all products in parallel — no auth needed for GET /api/products/:id
-                const results = await Promise.all(
-                    uniqueIds.map(async (pid) => {
-                        try {
-                            const r = await fetch(`${API_BASE}/api/products/${pid}`);
-                            if (!r.ok) return [pid, null];
-                            const p = await r.json();
-                            return [pid, p];
-                        } catch {
-                            return [pid, null];
-                        }
-                    })
-                );
-
-                setProductMap(Object.fromEntries(results));
+                await fetchRefunds();
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -285,7 +394,14 @@ export default function MyOrders() {
                             emptyText="Orders you place will appear here while they're being processed or delivered."
                         >
                             {currentOrders.map((order) => (
-                                <OrderCard key={order.delivery_id} order={order} isCurrent={true} productMap={productMap} />
+                                <OrderCard
+                                    key={order.delivery_id}
+                                    order={order}
+                                    isCurrent={true}
+                                    productMap={productMap}
+                                    existingRefunds={refunds}
+                                    onRefundSubmitted={fetchRefunds}
+                                />
                             ))}
                         </Section>
 
@@ -297,12 +413,18 @@ export default function MyOrders() {
                             emptyText="Completed and returned orders will appear here."
                         >
                             {previousOrders.map((order) => (
-                                <OrderCard key={order.delivery_id} order={order} isCurrent={false} productMap={productMap} />
+                                <OrderCard
+                                    key={order.delivery_id}
+                                    order={order}
+                                    isCurrent={false}
+                                    productMap={productMap}
+                                    existingRefunds={refunds}
+                                    onRefundSubmitted={fetchRefunds}
+                                />
                             ))}
                         </Section>
                     </>
                 )}
-
             </div>
         </div>
     );
