@@ -19,6 +19,7 @@ import MainLayout from './layouts/MainLayout';
 import Invoice from './pages/Invoice';
 import RefundManager from "./pages/sales-manager/RefundManager";
 import Wishlist from './pages/Wishlist';
+import InvoiceList from "./pages/sales-manager/InvoiceList";
 
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
         <Route path="/sm" element={<SMLayout />}>
           <Route path="pricing" element={<PricingManager />} />
           <Route path="revenue" element={<RevenueManager />} />
+          <Route path="invoices" element={<InvoiceList />} />
           <Route path="refunds" element={<RefundManager />} />
         </Route>
       </Routes>
