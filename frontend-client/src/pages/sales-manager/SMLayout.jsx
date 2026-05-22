@@ -15,6 +15,7 @@ const NAV_LINKS = [
     { to: "/sm/pricing",  label: "💰 Pricing" },
     { to: "/sm/revenue",  label: "📊 Revenue" },
     { to: "/sm/invoices", label: "🧾 Invoices" },
+    { to: "/sm/refunds",  label: "↩️ Refunds" },
 ];
 
 export default function SMLayout() {

@@ -17,7 +17,7 @@ import PricingManager from "./pages/sales-manager/PricingManager";
 import RevenueManager from "./pages/sales-manager/RevenueManager";
 import MainLayout from './layouts/MainLayout';
 import Invoice from './pages/Invoice';
-
+import RefundManager from "./pages/sales-manager/RefundManager";
 
 
 function App() {
@@ -50,6 +50,7 @@ function App() {
         <Route path="/sm" element={<SMLayout />}>
           <Route path="pricing" element={<PricingManager />} />
           <Route path="revenue" element={<RevenueManager />} />
+          <Route path="refunds" element={<RefundManager />} />
         </Route>
       </Routes>
     </BrowserRouter>
