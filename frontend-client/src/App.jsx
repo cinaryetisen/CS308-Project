@@ -13,6 +13,7 @@ import ReviewManager from "./pages/product-manager/ReviewManager";
 import ProductManager from "./pages/product-manager/ProductManager";
 import CategoryManager from "./pages/product-manager/CategoryManager";
 import SMLayout from "./pages/sales-manager/SMLayout";
+import PricingManager from "./pages/sales-manager/PricingManager";
 import MainLayout from './layouts/MainLayout';
 import Invoice from './pages/Invoice';
 
@@ -45,7 +46,7 @@ function App() {
           <Route path="categories" element={<CategoryManager />} />
         </Route>
         <Route path="/sm" element={<SMLayout />}>
-
+          <Route path="pricing" element={<PricingManager />} />
         </Route>
       </Routes>
     </BrowserRouter>
