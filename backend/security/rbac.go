@@ -1,8 +1,9 @@
 package security
 
 import (
-	"net/http"
 	"slices"
+
+	"medieval-store/errs"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +14,7 @@ func Authorize(allowedRoles ...string) gin.HandlerFunc {
 		// 1. Get role from context (extracted from JWT by Auth middleware)
 		userRole, exists := c.Get("role")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Role not found"})
+			errs.Abort(c, errs.UserForbidden)
 			return
 		}
 
@@ -21,7 +22,7 @@ func Authorize(allowedRoles ...string) gin.HandlerFunc {
 		authorized := slices.Contains(allowedRoles, userRole.(string))
 
 		if !authorized {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "You don't have permission to perform this action"})
+			errs.Abort(c, errs.UserForbidden)
 			return
 		}
 

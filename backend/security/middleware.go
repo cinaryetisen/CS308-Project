@@ -2,9 +2,10 @@ package security
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
+
+	"medieval-store/errs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -15,13 +16,13 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
+			errs.Abort(c, errs.AuthMissingHeader)
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
+			errs.Abort(c, errs.AuthInvalidHeader)
 			return
 		}
 
@@ -37,7 +38,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			errs.Abort(c, errs.AuthInvalidToken)
 			return
 		}
 
@@ -46,7 +47,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Set("user_id", uint(claims["user_id"].(float64)))
 			c.Set("role", claims["role"].(string))
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Failed to parse token claims"})
+			errs.Abort(c, errs.AuthClaimsParseFail)
 			return
 		}
 
