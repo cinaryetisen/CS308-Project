@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { apiRequest } from "../api/client";
 
 const STATUS_STYLES = {
     processing:   "bg-yellow-100 text-yellow-700",
@@ -195,14 +194,8 @@ export default function MyOrders() {
     useEffect(() => {
         async function fetchAll() {
             try {
-                const token = localStorage.getItem("token");
-
                 // 1. Fetch orders (Items are preloaded by the backend)
-                const res = await fetch(`${API_BASE}/api/orders/me`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok) throw new Error("Failed to fetch orders");
-                const data = await res.json();
+                const data = await apiRequest("/api/orders/me");
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
 
@@ -222,9 +215,7 @@ export default function MyOrders() {
                 const results = await Promise.all(
                     uniqueIds.map(async (pid) => {
                         try {
-                            const r = await fetch(`${API_BASE}/api/products/${pid}`);
-                            if (!r.ok) return [pid, null];
-                            const p = await r.json();
+                            const p = await apiRequest(`/api/products/${pid}`, {}, false);
                             return [pid, p];
                         } catch {
                             return [pid, null];

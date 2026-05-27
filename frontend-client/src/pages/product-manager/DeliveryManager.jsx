@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { apiRequest } from "../../api/client";
 
 const STATUSES = ["processing", "in-transit", "delivered"];
 
@@ -76,20 +75,10 @@ function DeliveryCard({ order, onStatusUpdate, productMap }) {
         setSaving(true);
         setFeedback(null);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/deliveries/${order.delivery_id}/status`, {
+            const data = await apiRequest(`/api/deliveries/${order.delivery_id}/status`, {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({ status: selected }),
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Update failed");
-            }
-            const data = await res.json();
             onStatusUpdate(order.delivery_id, data.order);
             setFeedback({ type: "success", message: "Status updated." });
         } catch (err) {
@@ -194,12 +183,7 @@ export default function DeliveryManager() {
     useEffect(() => {
         async function fetchAll() {
             try {
-                const token = localStorage.getItem("token");
-                const res = await fetch(`${API_BASE}/api/deliveries`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok) throw new Error("Failed to fetch deliveries");
-                const data = await res.json();
+                const data = await apiRequest("/api/deliveries");
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
 
@@ -218,9 +202,7 @@ export default function DeliveryManager() {
                 const results = await Promise.all(
                     uniqueIds.map(async (pid) => {
                         try {
-                            const r = await fetch(`${API_BASE}/api/products/${pid}`);
-                            if (!r.ok) return [pid, null];
-                            const p = await r.json();
+                            const p = await apiRequest(`/api/products/${pid}`, {}, false);
                             return [pid, p];
                         } catch {
                             return [pid, null];

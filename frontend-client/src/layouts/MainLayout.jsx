@@ -1,10 +1,10 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { apiRequest } from '../api/client';
 
 export default function MainLayout() {
     const navigate = useNavigate();
-    const API_URL = import.meta.env.VITE_API_URL;
 
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -15,15 +15,10 @@ export default function MainLayout() {
         const token = localStorage.getItem("token");
         if (token) {
             try {
-                const res = await fetch(`${API_URL}/api/cart`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setCartCount(Array.isArray(data) ? data.reduce((sum, item) => sum + item.quantity, 0) : 0);
-                }
-            } catch (err) {
-                console.error("Failed to fetch cart count", err);
+                const data = await apiRequest("/api/cart");
+                setCartCount(Array.isArray(data) ? data.reduce((sum, item) => sum + item.quantity, 0) : 0);
+            } catch {
+                // Non-critical: leave count as-is on error
             }
         } else {
             const cart = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -38,15 +33,10 @@ export default function MainLayout() {
             setIsLoggedIn(true);
 
             // Always fetch fresh user data from the API so the name is always up to date
-            fetch(`${API_URL}/api/users/me`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
-                .then(res => res.ok ? res.json() : null)
+            apiRequest("/api/users/me")
                 .then(user => {
-                    if (user) {
-                        setUserData(user);
-                        localStorage.setItem("user", JSON.stringify(user));
-                    }
+                    setUserData(user);
+                    localStorage.setItem("user", JSON.stringify(user));
                 })
                 .catch(err => console.error("Failed to fetch user profile", err));
         }

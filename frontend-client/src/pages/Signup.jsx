@@ -1,11 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { apiRequest } from '../api/client';
 
 export default function Signup() {
   const navigate = useNavigate();
-
-  // API URL from .env
-  const API_URL = import.meta.env.VITE_API_URL;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -17,26 +15,23 @@ export default function Signup() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
 
   // Handle input changes
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setError("");
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/signup`, {
+      await apiRequest("/api/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
         body: JSON.stringify({
           name: formData.fullName,       // map frontend -> backend
           email: formData.email,
@@ -44,22 +39,13 @@ export default function Signup() {
           home_address: formData.address,
           password: formData.password
         })
-      });
+      }, false);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.error || "Signup failed");
-        setLoading(false);
-        return;
-      }
-
-      alert("Account created successfully!");
       navigate("/login");
 
-    } catch (error) {
-      console.error(error);
-      alert("Server error");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -74,6 +60,12 @@ export default function Signup() {
           </h2>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+
+            {error && (
+              <div className="px-4 py-2 text-sm text-red-700 bg-red-100 border border-red-300 rounded-md">
+                {error}
+              </div>
+            )}
 
             {/* Full Name */}
             <input

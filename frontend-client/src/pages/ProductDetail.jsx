@@ -51,7 +51,7 @@ export default function ProductDetail() {
                 let data;
                 try { data = JSON.parse(text); }
                 catch { setError("Unexpected response from server."); return; }
-                if (!res.ok) { setError(data.error || "Product not found."); return; }
+                if (!res.ok) { setError(data.message || "Product not found."); return; }
                 setProduct(data);
             } catch (err) {
                 console.error(err);
@@ -137,7 +137,7 @@ export default function ProductDetail() {
             });
             if (!res.ok) {
                 let errMsg = "Failed to submit rating.";
-                try { const data = await res.json(); errMsg = data.error || errMsg; } catch {}
+                try { const data = await res.json(); errMsg = data.message || data.error || errMsg; } catch {}
                 setRatingMsg({ type: "error", text: errMsg });
                 return;
             }
@@ -171,7 +171,7 @@ export default function ProductDetail() {
             });
             if (!res.ok) {
                 let errMsg = "Failed to submit comment.";
-                try { const data = await res.json(); errMsg = data.error || errMsg; } catch {}
+                try { const data = await res.json(); errMsg = data.message || data.error || errMsg; } catch {}
                 setReviewError(errMsg);
                 return;
             }

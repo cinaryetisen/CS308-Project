@@ -1,8 +1,8 @@
 import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { apiRequest } from '../api/client';
 
 export default function Main() {
-    const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
 
     const { refreshCartCount } = useOutletContext();
@@ -31,15 +31,14 @@ export default function Main() {
         const fetchProducts = async () => {
             setLoading(true);
             try {
-                let url = `${API_URL}/api/products?`;
-                if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`;
-                if (categoryParam)   url += `category=${encodeURIComponent(categoryParam)}&`;
+                let path = "/api/products?";
+                if (debouncedSearch) path += `search=${encodeURIComponent(debouncedSearch)}&`;
+                if (categoryParam)   path += `category=${encodeURIComponent(categoryParam)}&`;
                 if (sortOption !== "default") {
                     const sortMap = { "price-asc": "price_asc", "price-desc": "price_desc", "rating-desc": "popular" };
-                    url += `sort=${sortMap[sortOption]}`;
+                    path += `sort=${sortMap[sortOption]}`;
                 }
-                const response = await fetch(url);
-                const data     = await response.json();
+                const data = await apiRequest(path, {}, false);
                 setProducts(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error("Error fetching products:", error);
@@ -48,28 +47,24 @@ export default function Main() {
             }
         };
         fetchProducts();
-    }, [API_URL, debouncedSearch, sortOption, categoryParam]);
+    }, [debouncedSearch, sortOption, categoryParam]);
 
     const addToCart = async (e, product) => {
         e.stopPropagation();
         if (product.quantity === 0) return;
         if (isLoggedIn) {
             try {
-                const token = localStorage.getItem("token");
-                const response = await fetch(`${API_URL}/api/cart/item`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                await apiRequest("/api/cart/item", {
+                    method: "PATCH",
                     body: JSON.stringify({ product_id: product.id, quantity: 1 })
                 });
-                if (response.ok) {
-                    setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
-                    setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
-                    refreshCartCount();
-                } else {
-                    console.error("Failed to add to backend cart:", (await response.json()).error);
-                }
+                setCartFeedback((prev) => ({ ...prev, [product.id]: "added" }));
+                setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 1200);
+                refreshCartCount();
             } catch (error) {
-                console.error("Network error adding to cart:", error);
+                console.error("Failed to add to cart:", error);
+                setCartFeedback((prev) => ({ ...prev, [product.id]: "error" }));
+                setTimeout(() => setCartFeedback((prev) => ({ ...prev, [product.id]: null })), 2000);
             }
         } else {
             const cart = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -176,10 +171,11 @@ export default function Main() {
                                             outOfStock ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
                                                 : feedback === "added" ? "bg-[#add461] text-[#131f00]"
                                                     : feedback === "maxed" ? "bg-[#93000a] text-[#ffdad6]"
-                                                        : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                                        : feedback === "error" ? "bg-[#93000a] text-[#ffdad6]"
+                                                            : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
                                         }`}
                                     >
-                                        {outOfStock ? "Unavailable" : feedback === "added" ? "✓ Added" : feedback === "maxed" ? "Max Reached" : "Add to Cart"}
+                                        {outOfStock ? "Unavailable" : feedback === "added" ? "✓ Added" : feedback === "maxed" ? "Max Reached" : feedback === "error" ? "Failed" : "Add to Cart"}
                                     </button>
                                 </div>
                             );
