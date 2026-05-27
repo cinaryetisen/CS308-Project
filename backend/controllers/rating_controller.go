@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +28,7 @@ func CreateRating(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -37,17 +39,22 @@ func CreateRating(c *gin.Context) {
 		Count(&deliveredCount).Error
 
 	if err != nil || deliveredCount == 0 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You can only rate products that have been delivered to you."})
+		errs.Abort(c, errs.RatingUnauthorized)
 		return
 	}
 
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify user"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
-	objID, _ := primitive.ObjectIDFromHex(input.ProductID)
+	objID, err := primitive.ObjectIDFromHex(input.ProductID)
+	if err != nil {
+		errs.Abort(c, errs.ProductInvalidID)
+		return
+	}
+
 	ratingsColl := config.MongoClient.Database(config.MongoDBName).Collection("ratings")
 	productsColl := config.MongoClient.Database(config.MongoDBName).Collection("products")
 
@@ -70,18 +77,20 @@ func CreateRating(c *gin.Context) {
 			}},
 		)
 		if updErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update rating"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
 		var product models.Product
 		if pErr := productsColl.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); pErr == nil && product.ReviewCount > 0 {
 			newAvg := recomputeAvgOnUpdate(product.Rating, product.ReviewCount, existing.Rating, input.Rating)
-			productsColl.UpdateOne(
+			if _, err := productsColl.UpdateOne(
 				context.Background(),
 				bson.M{"_id": objID},
 				bson.M{"$set": bson.M{"rating": newAvg}},
-			)
+			); err != nil {
+				log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Rating updated"})
@@ -99,7 +108,7 @@ func CreateRating(c *gin.Context) {
 			UpdatedAt: now,
 		}
 		if _, iErr := ratingsColl.InsertOne(context.Background(), newRating); iErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit rating"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
@@ -107,21 +116,23 @@ func CreateRating(c *gin.Context) {
 		if pErr := productsColl.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); pErr == nil {
 			newCount := product.ReviewCount + 1
 			newAvg := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
-			productsColl.UpdateOne(
+			if _, err := productsColl.UpdateOne(
 				context.Background(),
 				bson.M{"_id": objID},
 				bson.M{"$set": bson.M{
 					"rating":       newAvg,
 					"review_count": newCount,
 				}},
-			)
+			); err != nil {
+				log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
+			}
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "Rating submitted successfully."})
 		return
 
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query existing rating"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 }
@@ -140,7 +151,7 @@ func GetProductRatings(c *gin.Context) {
 	productID := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(productID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -149,13 +160,13 @@ func GetProductRatings(c *gin.Context) {
 	filter := bson.M{"product_id": objID}
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch ratings"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	var ratings []models.Rating
 	if err = cursor.All(context.Background(), &ratings); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse ratings"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -174,7 +185,7 @@ func GetMyRatingForProduct(c *gin.Context) {
 	productID := c.Param("productId")
 	objID, err := primitive.ObjectIDFromHex(productID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -183,11 +194,11 @@ func GetMyRatingForProduct(c *gin.Context) {
 	err = coll.FindOne(c.Request.Context(), bson.M{"product_id": objID, "user_id": userID}).Decode(&existing)
 
 	if err == mongo.ErrNoDocuments {
-		c.JSON(http.StatusNotFound, gin.H{"error": "no rating yet"})
+		c.JSON(http.StatusNotFound, gin.H{"code": "RATING_NOT_FOUND", "message": "You have not rated this product yet."})
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "lookup failed"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 

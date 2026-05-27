@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,13 @@ func GetProfile(c *gin.Context) {
 	//Extract the user_id from AuthMiddleware
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		errs.Abort(c, errs.UserUnauthorized)
 		return
 	}
 
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		errs.Abort(c, errs.UserNotFound)
 		return
 	}
 
@@ -42,14 +43,14 @@ func UpdateProfile(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
 	//Fetch user from database
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		errs.Abort(c, errs.UserNotFound)
 		return
 	}
 
@@ -66,7 +67,7 @@ func UpdateProfile(c *gin.Context) {
 
 	//Save changes to database
 	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 

@@ -1,8 +1,8 @@
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { apiRequest } from '../api/client';
 
 export default function Payment() {
-    const API_URL = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
 
     // Grab the refresh function passed down from the layout
@@ -62,16 +62,9 @@ export default function Payment() {
         setCheckoutError("");
 
         try {
-            const token = localStorage.getItem("token");
-            if (!token) throw new Error("You must be logged in to complete checkout.");
+            if (!localStorage.getItem("token")) throw new Error("You must be logged in to complete checkout.");
 
-            const cartRes = await fetch(`${API_URL}/api/cart`, {
-                method: "GET",
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (!cartRes.ok) throw new Error("Failed to retrieve cart from server.");
-
-            const cartItems = await cartRes.json();
+            const cartItems = await apiRequest("/api/cart");
             if (!cartItems || cartItems.length === 0) {
                 setCheckoutError("Your cart is empty.");
                 setIsProcessing(false);
@@ -90,17 +83,10 @@ export default function Payment() {
                 cart_items:       formattedCartItems
             };
 
-            const response = await fetch(`${API_URL}/api/checkout`, {
+            const data = await apiRequest("/api/checkout", {
                 method: "POST",
-                headers: {
-                    "Content-Type":  "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
                 body: JSON.stringify(payload)
             });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Payment failed to process.");
 
             // Clear local storage and trigger header refresh
             localStorage.removeItem("cart");

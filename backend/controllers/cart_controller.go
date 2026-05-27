@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
-	"medieval-store/config"
-	"medieval-store/models"
 	"net/http"
 	"time"
+
+	"medieval-store/config"
+	"medieval-store/errs"
+	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -24,7 +26,7 @@ func AddToCart(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -42,7 +44,7 @@ func AddToCart(c *gin.Context) {
 	}).Create(&item).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -55,7 +57,7 @@ func GetCart(c *gin.Context) {
 	var items []models.CartItem
 	result := config.DB.Where("user_id = ?", userID).Find(&items)
 	if result.Error != nil {
-		c.Error(result.Error)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -80,14 +82,14 @@ func GetCart(c *gin.Context) {
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var products []models.Product
 	if err = cursor.All(ctx, &products); err != nil {
-		c.Status(http.StatusInternalServerError)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -119,7 +121,7 @@ func ClearCart(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 
 	if err := config.DB.Where("user_id = ?", userID).Delete(&models.CartItem{}).Error; err != nil {
-		c.Error(err)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -134,12 +136,12 @@ func RemoveFromCart(c *gin.Context) {
 	result := config.DB.Where("user_id = ? AND product_id = ?", userID, productID).Delete(&models.CartItem{})
 
 	if result.Error != nil {
-		c.Error(result.Error)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	if result.RowsAffected == 0 {
-		c.JSON(404, gin.H{"message": "Item not found in cart"})
+		errs.Abort(c, errs.CartItemNotFound)
 		return
 	}
 
@@ -155,7 +157,7 @@ func MergeCarts(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&guestItems); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid guest cart data"})
+		errs.Abort(c, errs.InvalidJSON)
 		return
 	}
 
@@ -177,7 +179,7 @@ func MergeCarts(c *gin.Context) {
 
 		if err != nil {
 			tx.Rollback()
-			c.Error(err)
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 	}
