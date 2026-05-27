@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/services"
 
@@ -19,7 +20,7 @@ func Checkout(c *gin.Context) {
 	// 1. Get the logged-in user's ID from the JWT middleware
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized. Please log in to checkout."})
+		errs.Abort(c, errs.UserUnauthorized)
 		return
 	}
 
@@ -31,7 +32,7 @@ func Checkout(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid checkout data: " + err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -77,7 +78,7 @@ func Checkout(c *gin.Context) {
 
 	if err := tx.Create(&newOrder).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -101,7 +102,7 @@ func Checkout(c *gin.Context) {
 
 		if err := tx.Create(&orderItem).Error; err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order items"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 		savedOrderItems = append(savedOrderItems, orderItem)
@@ -109,7 +110,13 @@ func Checkout(c *gin.Context) {
 		// ==========================================
 		// ATOMIC CONCURRENCY SHIELD: Deduct Stock
 		// ==========================================
-		objID, _ := primitive.ObjectIDFromHex(item.ProductID)
+		objID, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err != nil {
+			tx.Rollback()
+			errs.Abort(c, errs.ProductInvalidID)
+			return
+		}
+
 		productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 
 		// Filter: Only match the product IF it has enough stock (>= item.Quantity)
@@ -126,9 +133,7 @@ func Checkout(c *gin.Context) {
 		// If 0 documents were modified, it means another user bought the last item right before this!
 		if err != nil || result.ModifiedCount == 0 {
 			tx.Rollback() // Cancel the PostgreSQL order completely
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "Checkout failed. One or more items in your cart just went out of stock!",
-			})
+			errs.Abort(c, errs.ProductOutOfStock)
 			return
 		}
 		// ==========================================
@@ -137,7 +142,7 @@ func Checkout(c *gin.Context) {
 	// 5. Clear the user's shopping cart
 	if err := tx.Where("user_id = ?", userID).Delete(&models.CartItem{}).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear shopping cart"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 

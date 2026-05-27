@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,7 @@ func GetRevenue(c *gin.Context) {
 	toTime, errTo := time.Parse("2006-01-02", toStr)
 
 	if errFrom != nil || errTo != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or missing dates. Use format YYYY-MM-DD"})
+		errs.Abort(c, errs.InvalidDateFormat)
 		return
 	}
 
@@ -54,7 +55,7 @@ func GetRevenue(c *gin.Context) {
 		Where("created_at >= ? AND created_at <= ?", fromTime, toTime).
 		Where("status IN ?", validStatuses).
 		Find(&orders).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -91,6 +92,8 @@ func GetRevenue(c *gin.Context) {
 				}
 			}
 		}
+		// If MongoDB fails, costMap stays empty: revenue is still returned,
+		// profit will show as equal to revenue (cost treated as 0).
 	}
 
 	// 5. Calculate Revenue, Cost, and Profit
