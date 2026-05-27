@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { apiRequest } from '../api/client';
 
 export default function Signup() {
     const navigate = useNavigate();
-    const API_URL  = import.meta.env.VITE_API_URL;
 
     const [formData, setFormData] = useState({
         fullName: "",
@@ -28,32 +28,23 @@ export default function Signup() {
         setError("");
 
         try {
-            const response = await fetch(`${API_URL}/api/signup`, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({
+            await apiRequest("/api/signup", {
+                method: "POST",
+                body:   JSON.stringify({
                     name:         formData.fullName,
                     email:        formData.email,
                     tax_id:       formData.taxId,
                     home_address: formData.address,
                     password:     formData.password
                 })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || "Signup failed. Please try again.");
-                setLoading(false);
-                return;
-            }
+            }, false);
 
             setSuccess(true);
             setTimeout(() => navigate("/login"), 1500);
 
         } catch (err) {
             console.error(err);
-            setError("Server error. Please try again later.");
+            setError(err.message || "Signup failed. Please try again.");
         } finally {
             setLoading(false);
         }

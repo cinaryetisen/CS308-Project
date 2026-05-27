@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
+import { apiRequest } from '../api/client';
 
 export default function ProductDetail() {
     const { id }   = useParams();
     const navigate = useNavigate();
-    const API_URL  = import.meta.env.VITE_API_URL;
 
     const { refreshCartCount } = useOutletContext() || {};
 
@@ -41,16 +41,11 @@ export default function ProductDetail() {
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                const res  = await fetch(`${API_URL}/api/products/${id}`);
-                const text = await res.text();
-                let data;
-                try { data = JSON.parse(text); }
-                catch { setError("Unexpected response from server."); return; }
-                if (!res.ok) { setError(data.message || "Product not found."); return; }
+                const data = await apiRequest(`/api/products/${id}`, {}, false);
                 setProduct(data);
             } catch (err) {
                 console.error(err);
-                setError("Server error. Please try again later.");
+                setError(err.message || "Product not found.");
             } finally {
                 setLoading(false);
             }
@@ -61,12 +56,9 @@ export default function ProductDetail() {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/products/${id}/reviews`);
-                if (!res.ok) { setReviews([]); return; }
-                const data = await res.json();
+                const data = await apiRequest(`/api/products/${id}/reviews`, {}, false);
                 setReviews(data || []);
-            } catch (err) {
-                console.error(err);
+            } catch {
                 setReviews([]);
             } finally {
                 setReviewsLoading(false);
@@ -78,15 +70,11 @@ export default function ProductDetail() {
     useEffect(() => {
         const fetchRatings = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/products/${id}/ratings`);
-                if (!res.ok) return;
-                const data = await res.json();
+                const data = await apiRequest(`/api/products/${id}/ratings`, {}, false);
                 const map = {};
                 (data || []).forEach((r) => { map[r.user_id] = r.rating; });
                 setRatingsMap(map);
-            } catch (err) {
-                console.error(err);
-            }
+            } catch { /* non-critical */ }
         };
         fetchRatings();
     }, [id]);
@@ -95,17 +83,9 @@ export default function ProductDetail() {
         if (!isLoggedIn) return;
         const fetchMyRating = async () => {
             try {
-                const token = localStorage.getItem("token");
-                const res = await fetch(`${API_URL}/api/me/ratings/${id}`, {
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setMyRating(data.rating || 0);
-                }
-            } catch (err) {
-                console.error(err);
-            }
+                const data = await apiRequest(`/api/me/ratings/${id}`);
+                setMyRating(data.rating || 0);
+            } catch { /* no existing rating */ }
         };
         fetchMyRating();
     }, [id, isLoggedIn]);
@@ -114,19 +94,9 @@ export default function ProductDetail() {
         if (!isLoggedIn) return;
         const fetchWishlistStatus = async () => {
             try {
-                const token = localStorage.getItem("token");
-                const res   = await fetch(`${API_URL}/api/wishlist`, {
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setIsWishlisted(
-                        Array.isArray(data) && data.some((item) => String(item.id) === String(id))
-                    );
-                }
-            } catch (err) {
-                console.error(err);
-            }
+                const data = await apiRequest("/api/wishlist");
+                setIsWishlisted(Array.isArray(data) && data.some((item) => String(item.id) === String(id)));
+            } catch { /* non-critical */ }
         };
         fetchWishlistStatus();
     }, [id, isLoggedIn]);
@@ -137,28 +107,17 @@ export default function ProductDetail() {
         setSubmittingRating(true);
         setRatingMsg(null);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/api/ratings`, {
+            await apiRequest("/api/ratings", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
                 body: JSON.stringify({ product_id: id, rating: star }),
             });
-            if (!res.ok) {
-                let errMsg = "Failed to submit rating.";
-                try { const data = await res.json(); errMsg = data.message || data.error || errMsg; } catch {}
-                setRatingMsg({ type: "error", text: errMsg });
-                return;
-            }
             setRatingMsg({ type: "success", text: "Rating saved!" });
             setTimeout(() => setRatingMsg(null), 3000);
-            const productRes = await fetch(`${API_URL}/api/products/${id}`);
-            if (productRes.ok) setProduct(await productRes.json());
+            const updated = await apiRequest(`/api/products/${id}`, {}, false);
+            setProduct(updated);
         } catch (err) {
             console.error(err);
-            setRatingMsg({ type: "error", text: "Server error. Please try again." });
+            setRatingMsg({ type: "error", text: err.message || "Failed to submit rating." });
         } finally {
             setSubmittingRating(false);
         }
@@ -169,27 +128,16 @@ export default function ProductDetail() {
         setReviewError("");
         setSubmittingReview(true);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/api/reviews`, {
+            await apiRequest("/api/reviews", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
                 body: JSON.stringify({ product_id: id, comment: newComment }),
             });
-            if (!res.ok) {
-                let errMsg = "Failed to submit comment.";
-                try { const data = await res.json(); errMsg = data.message || data.error || errMsg; } catch {}
-                setReviewError(errMsg);
-                return;
-            }
             setNewComment("");
             setReviewSubmitMsg("Comment submitted! It will appear after moderation.");
             setTimeout(() => setReviewSubmitMsg(null), 4000);
         } catch (err) {
             console.error(err);
-            setReviewError("Server error. Please try again.");
+            setReviewError(err.message || "Failed to submit comment.");
         } finally {
             setSubmittingReview(false);
         }
@@ -200,20 +148,12 @@ export default function ProductDetail() {
         if (wishlistLoading) return;
         setWishlistLoading(true);
         try {
-            const token = localStorage.getItem("token");
             if (isWishlisted) {
-                await fetch(`${API_URL}/api/wishlist/${id}`, {
-                    method:  "DELETE",
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
+                await apiRequest(`/api/wishlist/${id}`, { method: "DELETE" });
                 setIsWishlisted(false);
             } else {
-                await fetch(`${API_URL}/api/wishlist`, {
-                    method:  "POST",
-                    headers: {
-                        "Content-Type":  "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
+                await apiRequest("/api/wishlist", {
+                    method: "POST",
                     body: JSON.stringify({ product_id: id }),
                 });
                 setIsWishlisted(true);
@@ -229,25 +169,18 @@ export default function ProductDetail() {
         if (!product || product.quantity === 0) return;
         if (isLoggedIn) {
             try {
-                const token = localStorage.getItem("token");
-                const response = await fetch(`${API_URL}/api/cart/item`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                await apiRequest("/api/cart/item", {
+                    method: "PATCH",
                     body: JSON.stringify({ product_id: product.id, quantity: quantity })
                 });
-                if (response.ok) {
-                    setCartMsg("added");
-                    if (refreshCartCount) refreshCartCount();
-                    window.dispatchEvent(new Event("cartUpdated"));
-                } else {
-                    setCartMsg("maxed");
-                }
+                setCartMsg("added");
+                if (refreshCartCount) refreshCartCount();
+                window.dispatchEvent(new Event("cartUpdated"));
                 setTimeout(() => setCartMsg(null), 1500);
             } catch (error) {
-                console.error("Network error adding to cart:", error);
+                console.error("Failed to add to cart:", error);
+                setCartMsg("maxed");
+                setTimeout(() => setCartMsg(null), 1500);
             }
         } else {
             const cart = JSON.parse(localStorage.getItem("cart") || "[]");
