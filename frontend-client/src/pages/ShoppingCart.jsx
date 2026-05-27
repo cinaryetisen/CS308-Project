@@ -1,8 +1,6 @@
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-
-// FIX: Moved API_URL outside the component so it doesn't trigger unnecessary re-renders
-const API_URL = import.meta.env.VITE_API_URL;
+import { apiRequest } from '../api/client';
 
 export default function ShoppingCart() {
     const navigate = useNavigate();
@@ -23,10 +21,7 @@ export default function ShoppingCart() {
 
             // Fetch cart from backend
             setCartLoading(true);
-            fetch(`${API_URL}/api/cart`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            })
-                .then((res) => res.json())
+            apiRequest("/api/cart")
                 .then((data) => {
                     setCartItems(
                         (data || []).map((item) => ({
@@ -82,18 +77,14 @@ export default function ShoppingCart() {
 
         // Sync with backend
         try {
-            const token = localStorage.getItem("token");
-            await fetch(`${API_URL}/api/cart/item`, {
+            await apiRequest("/api/cart/item", {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
                 body: JSON.stringify({ product_id: id, quantity: delta })
             });
             refreshCartCount(); // Notify Layout
         } catch (err) {
             console.error("Failed to update quantity:", err);
+            setCheckoutError(err.message);
         }
     };
 
@@ -111,14 +102,11 @@ export default function ShoppingCart() {
 
         // Sync with backend
         try {
-            const token = localStorage.getItem("token");
-            await fetch(`${API_URL}/api/cart/${id}`, {
-                method: "DELETE",
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            await apiRequest(`/api/cart/${id}`, { method: "DELETE" });
             refreshCartCount(); // Notify Layout
         } catch (err) {
             console.error("Failed to remove item:", err);
+            setCheckoutError(err.message);
         }
     };
 

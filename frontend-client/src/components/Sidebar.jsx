@@ -1,24 +1,17 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { apiRequest } from "../api/client";
 
 export default function Sidebar() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     const fetchCategoriesFromProducts = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/products`);
-        
-        if (response.ok) {
-          const products = await response.json();
-          const allCategories = products.map(product => product.category).filter(Boolean);
-          const uniqueCategories = [...new Set(allCategories)];
-          setCategories(uniqueCategories);
-        } else {
-          console.error("Failed to fetch products to build category list");
-        }
+        const products = await apiRequest("/api/products", {}, false);
+        const allCategories = products.map(product => product.category).filter(Boolean);
+        setCategories([...new Set(allCategories)]);
       } catch (error) {
         console.error("Error fetching categories:", error);
       } finally {
@@ -27,7 +20,7 @@ export default function Sidebar() {
     };
 
     fetchCategoriesFromProducts();
-  }, [API_URL]);
+  }, []);
 
   return (
     // 👇 Removed h-screen and sticky. Added h-full and overflow-y-auto.
