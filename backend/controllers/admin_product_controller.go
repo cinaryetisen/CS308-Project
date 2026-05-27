@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,7 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product data: " + err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -63,7 +64,7 @@ func CreateProduct(c *gin.Context) {
 
 	_, err := collection.InsertOne(ctx, product)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -75,7 +76,7 @@ func UpdateProduct(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID format"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -93,7 +94,7 @@ func UpdateProduct(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid update data"})
+		errs.Abort(c, errs.InvalidJSON)
 		return
 	}
 
@@ -120,8 +121,12 @@ func UpdateProduct(c *gin.Context) {
 	filter := bson.M{"_id": objectID, "deleted_at": bson.M{"$exists": false}}
 	result, err := collection.UpdateOne(ctx, filter, updateData)
 
-	if err != nil || result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found or has been deleted"})
+	if err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
+	if result.MatchedCount == 0 {
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -133,7 +138,7 @@ func DeleteProduct(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -145,8 +150,12 @@ func DeleteProduct(c *gin.Context) {
 	updateData := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
 	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectID}, updateData)
 
-	if err != nil || result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+	if err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
+	if result.MatchedCount == 0 {
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -158,7 +167,7 @@ func UpdateStock(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -168,7 +177,7 @@ func UpdateStock(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Please provide a valid stock delta"})
+		errs.AbortWithDetail(c, errs.InvalidJSON, "please provide a valid stock delta")
 		return
 	}
 
@@ -188,12 +197,12 @@ func UpdateStock(c *gin.Context) {
 	result, err := collection.UpdateOne(ctx, filter, update)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	if result.MatchedCount == 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Operation failed: Product not found, deleted, or insufficient stock"})
+		errs.Abort(c, errs.ProductOutOfStock)
 		return
 	}
 

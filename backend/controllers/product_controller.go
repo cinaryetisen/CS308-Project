@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/services"
 
@@ -24,7 +25,7 @@ func GetProduct(c *gin.Context) {
 	//Convert string ID into MongoDB ObjectID
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID format"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -39,14 +40,11 @@ func GetProduct(c *gin.Context) {
 
 	//Handle errors
 	if err != nil {
-		//If MongoDB could not find the queried document
 		if err == mongo.ErrNoDocuments {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			errs.Abort(c, errs.ProductNotFound)
 			return
 		}
-
-		//If something else went wrong
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -133,7 +131,7 @@ func GetProducts(c *gin.Context) {
 	// 3. Execute the Pipeline
 	cursor, err := collection.Aggregate(ctx, pipeline)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 	defer cursor.Close(ctx)
@@ -141,7 +139,7 @@ func GetProducts(c *gin.Context) {
 	// 4. Decode into your unmodified Go struct
 	var products []models.Product
 	if err = cursor.All(ctx, &products); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode products"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -161,13 +159,13 @@ func UpdateProductPrice(c *gin.Context) {
 		Price float64 `json:"price" binding:"required,gt=0"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
 	objID, err := primitive.ObjectIDFromHex(productID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -178,11 +176,11 @@ func UpdateProductPrice(c *gin.Context) {
 		bson.M{"$set": bson.M{"price": input.Price, "updated_at": time.Now()}},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update price"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -198,18 +196,18 @@ func SetProductDiscount(c *gin.Context) {
 		Discount *float64 `json:"discount" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
 	if *input.Discount < 0 || *input.Discount > 100 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Discount must be between 0 and 100"})
+		errs.AbortWithDetail(c, errs.InvalidJSON, "discount must be between 0 and 100")
 		return
 	}
 
 	objID, err := primitive.ObjectIDFromHex(productID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -218,7 +216,7 @@ func SetProductDiscount(c *gin.Context) {
 	// Fetch current product to get name and price for the notification email.
 	var product models.Product
 	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -228,7 +226,7 @@ func SetProductDiscount(c *gin.Context) {
 		bson.M{"$set": bson.M{"discount": *input.Discount, "updated_at": time.Now()}},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update discount"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
