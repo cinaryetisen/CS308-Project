@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/services"
 
@@ -23,41 +24,41 @@ func RequestRefund(c *gin.Context) {
 		Reason      string `json:"reason" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
 	// Fetch the order and verify ownership.
 	var order models.Order
 	if err := config.DB.First(&order, orderID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		errs.Abort(c, errs.OrderNotFound)
 		return
 	}
 	if order.CustomerID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "This order does not belong to you"})
+		errs.Abort(c, errs.OrderForbidden)
 		return
 	}
 
 	// Order must be delivered before a refund can be requested.
 	if order.Status != "delivered" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only delivered orders are eligible for a refund"})
+		errs.Abort(c, errs.RefundIneligibleOrder)
 		return
 	}
 
 	// Enforce the 30-day refund window.
 	if time.Since(order.CreatedAt) > 30*24*time.Hour {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "The 30-day refund window for this order has passed"})
+		errs.Abort(c, errs.RefundWindowExpired)
 		return
 	}
 
 	// Fetch the order item and confirm it belongs to this order.
 	var orderItem models.OrderItem
 	if err := config.DB.First(&orderItem, input.OrderItemID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order item not found"})
+		errs.AbortWithDetail(c, errs.OrderNotFound, "order item not found")
 		return
 	}
 	if orderItem.OrderID != order.ID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Order item does not belong to this order"})
+		errs.Abort(c, errs.RefundItemMismatch)
 		return
 	}
 
@@ -66,7 +67,7 @@ func RequestRefund(c *gin.Context) {
 	err := config.DB.Where("order_item_id = ? AND status IN ?", input.OrderItemID, []string{"pending", "approved"}).
 		First(&existing).Error
 	if err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "A refund request already exists for this item"})
+		errs.Abort(c, errs.RefundAlreadyExists)
 		return
 	}
 
@@ -82,7 +83,7 @@ func RequestRefund(c *gin.Context) {
 	}
 
 	if err := config.DB.Create(&refund).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit refund request"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -95,7 +96,7 @@ func GetMyRefunds(c *gin.Context) {
 
 	var refunds []models.Refund
 	if err := config.DB.Where("customer_id = ?", userID).Find(&refunds).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your refund requests"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -109,7 +110,7 @@ func GetRefundRequests(c *gin.Context) {
 
 	var refunds []models.Refund
 	if err := config.DB.Where("status = ?", status).Find(&refunds).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch refund requests"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -127,7 +128,7 @@ func ResolveRefund(c *gin.Context) {
 		Action string `json:"action" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 	if input.Action != "approved" && input.Action != "rejected" {
@@ -137,11 +138,11 @@ func ResolveRefund(c *gin.Context) {
 
 	var refund models.Refund
 	if err := config.DB.First(&refund, refundID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Refund request not found"})
+		errs.Abort(c, errs.RefundNotFound)
 		return
 	}
 	if refund.Status != "pending" {
-		c.JSON(http.StatusConflict, gin.H{"error": "Refund has already been resolved"})
+		errs.Abort(c, errs.RefundAlreadyResolved)
 		return
 	}
 
@@ -159,14 +160,14 @@ func ResolveRefund(c *gin.Context) {
 		var orderItem models.OrderItem
 		if err := tx.First(&orderItem, refund.OrderItemID).Error; err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Order item not found"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
 		objID, err := primitive.ObjectIDFromHex(orderItem.ProductID)
 		if err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid product ID on order item"})
+			errs.Abort(c, errs.ProductInvalidID)
 			return
 		}
 
@@ -179,7 +180,7 @@ func ResolveRefund(c *gin.Context) {
 		)
 		if err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore stock"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
@@ -187,13 +188,13 @@ func ResolveRefund(c *gin.Context) {
 		if err := tx.Model(&models.Order{}).Where("id = ?", refund.OrderID).
 			Update("status", "returned").Error; err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
 		if err := tx.Save(&refund).Error; err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save refund"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
@@ -208,7 +209,7 @@ func ResolveRefund(c *gin.Context) {
 	} else {
 		// Rejection: no stock changes, no transaction needed.
 		if err := config.DB.Save(&refund).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save refund"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 
