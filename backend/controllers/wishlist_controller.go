@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,7 @@ func AddToWishlist(c *gin.Context) {
 		ProductID string `json:"product_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -32,7 +33,7 @@ func AddToWishlist(c *gin.Context) {
 	}
 
 	if err := config.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update wishlist"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -45,7 +46,7 @@ func GetWishlist(c *gin.Context) {
 
 	var items []models.WishlistItem
 	if err := config.DB.Where("user_id = ?", userID).Find(&items).Error; err != nil {
-		c.Error(err)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -68,14 +69,14 @@ func GetWishlist(c *gin.Context) {
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	cursor, err := collection.Find(ctx, bson.M{"_id": bson.M{"$in": objectIDs}})
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var products []models.Product
 	if err = cursor.All(ctx, &products); err != nil {
-		c.Status(http.StatusInternalServerError)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -110,12 +111,12 @@ func RemoveFromWishlist(c *gin.Context) {
 	result := config.DB.Where("user_id = ? AND product_id = ?", userID, productID).Delete(&models.WishlistItem{})
 
 	if result.Error != nil {
-		c.Error(result.Error)
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Item not found in wishlist"})
+		errs.Abort(c, errs.WishlistItemNotFound)
 		return
 	}
 
