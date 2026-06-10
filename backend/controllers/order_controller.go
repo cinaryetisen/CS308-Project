@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/services"
 	"net/http"
@@ -16,7 +17,7 @@ func GetDeliveryList(c *gin.Context) {
 	var orders []models.Order
 
 	if err := config.DB.Preload("Items").Find(&orders).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch deliveries"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -31,7 +32,7 @@ func UpdateOrderStatus(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -41,13 +42,13 @@ func UpdateOrderStatus(c *gin.Context) {
 		"delivered":  true,
 	}
 	if !validStatuses[input.Status] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Must be processing, in-transit, or delivered"})
+		errs.Abort(c, errs.OrderInvalidStatus)
 		return
 	}
 
 	var order models.Order
 	if err := config.DB.First(&order, orderID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		errs.Abort(c, errs.OrderNotFound)
 		return
 	}
 
@@ -60,7 +61,7 @@ func UpdateOrderStatus(c *gin.Context) {
 	}
 
 	if err := config.DB.Save(&order).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -70,14 +71,14 @@ func UpdateOrderStatus(c *gin.Context) {
 func GetMyOrders(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		errs.Abort(c, errs.UserUnauthorized)
 		return
 	}
 
 	var orders []models.Order
 
 	if err := config.DB.Preload("Items").Where("customer_id = ?", userID).Find(&orders).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your orders"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -91,17 +92,17 @@ func CancelOrder(c *gin.Context) {
 
 	var order models.Order
 	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		errs.Abort(c, errs.OrderNotFound)
 		return
 	}
 
 	if order.CustomerID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "This order does not belong to you"})
+		errs.Abort(c, errs.OrderForbidden)
 		return
 	}
 
 	if order.Status != "processing" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only orders still in processing can be cancelled"})
+		errs.Abort(c, errs.OrderNotCancellable)
 		return
 	}
 
@@ -113,7 +114,7 @@ func CancelOrder(c *gin.Context) {
 		objId, err := primitive.ObjectIDFromHex(item.ProductID)
 		if err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid product ID on order item"})
+			errs.Abort(c, errs.ProductInvalidID)
 			return
 		}
 		if _, err := collection.UpdateOne(
@@ -122,14 +123,14 @@ func CancelOrder(c *gin.Context) {
 			bson.M{"$inc": bson.M{"quantity": item.Quantity}},
 		); err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore stock"})
+			errs.Abort(c, errs.InternalError)
 			return
 		}
 	}
 
 	if err := tx.Model(&models.Order{}).Where("id = ?", order.ID).Update("status", "cancelled").Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -147,32 +148,44 @@ func DownloadInvoice(c *gin.Context) {
 	// 1. Fetch Order & preloaded Items
 	var order models.Order
 	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		errs.Abort(c, errs.OrderNotFound)
 		return
 	}
 
 	// 2. SECURITY GUARD: Only the owner or a PM can download this invoice!
 	if role != "product_manager" && order.CustomerID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to view this invoice"})
+		errs.Abort(c, errs.OrderForbidden)
 		return
 	}
 
 	// 3. Fetch User and Product names
 	var user models.User
-	config.DB.First(&user, order.CustomerID)
+	if err := config.DB.First(&user, order.CustomerID).Error; err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
 
 	var objIDs []primitive.ObjectID
 	for _, item := range order.Items {
-		id, _ := primitive.ObjectIDFromHex(item.ProductID)
-		objIDs = append(objIDs, id)
+		id, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err == nil {
+			objIDs = append(objIDs, id)
+		}
 	}
 
 	productMap := make(map[string]models.Product)
 	if len(objIDs) > 0 {
 		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
-		cursor, _ := collection.Find(context.Background(), bson.M{"_id": bson.M{"$in": objIDs}})
+		cursor, err := collection.Find(context.Background(), bson.M{"_id": bson.M{"$in": objIDs}})
+		if err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
 		var products []models.Product
-		cursor.All(context.Background(), &products)
+		if err := cursor.All(context.Background(), &products); err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
 		for _, p := range products {
 			productMap[p.ID.Hex()] = p
 		}
@@ -181,7 +194,7 @@ func DownloadInvoice(c *gin.Context) {
 	// 4. Generate PDF bytes on the fly
 	pdfBytes, err := services.GenerateInvoicePDF(user, order, order.Items, productMap)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 

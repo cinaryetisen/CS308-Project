@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func CreateReview(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -34,17 +35,22 @@ func CreateReview(c *gin.Context) {
 		Count(&count).Error
 
 	if err != nil || count == 0 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You can only review products that have been delivered to you."})
+		errs.Abort(c, errs.ReviewUnauthorized)
 		return
 	}
 
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify user"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
-	objID, _ := primitive.ObjectIDFromHex(input.ProductID)
+	objID, err := primitive.ObjectIDFromHex(input.ProductID)
+	if err != nil {
+		errs.Abort(c, errs.ProductInvalidID)
+		return
+	}
+
 	review := models.Review{
 		ProductID: objID,
 		UserID:    userID,
@@ -57,7 +63,7 @@ func CreateReview(c *gin.Context) {
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("reviews")
 	_, err = collection.InsertOne(context.Background(), review)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit review"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -69,7 +75,7 @@ func GetProductReviews(c *gin.Context) {
 	productID := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(productID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -78,13 +84,13 @@ func GetProductReviews(c *gin.Context) {
 	filter := bson.M{"product_id": objID, "status": "approved"}
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reviews"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	var reviews []models.Review
 	if err = cursor.All(context.Background(), &reviews); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse reviews"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -101,13 +107,13 @@ func GetPendingReviews(c *gin.Context) {
 
 	cursor, err := collection.Find(context.Background(), bson.M{"status": "pending"})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pending reviews"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	var reviews []models.Review
 	if err = cursor.All(context.Background(), &reviews); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse reviews"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
@@ -123,7 +129,7 @@ func ModerateReview(c *gin.Context) {
 	reviewID := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(reviewID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid review ID format"})
+		errs.AbortWithDetail(c, errs.InvalidJSON, "invalid review ID format")
 		return
 	}
 
@@ -131,7 +137,7 @@ func ModerateReview(c *gin.Context) {
 		Action string `json:"action" binding:"required"` // "approve" or "reject"
 	}
 	if err := c.ShouldBindJSON(&input); err != nil || (input.Action != "approve" && input.Action != "reject") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Action must be 'approve' or 'reject'"})
+		errs.Abort(c, errs.ReviewInvalidAction)
 		return
 	}
 
@@ -153,7 +159,7 @@ func ModerateReview(c *gin.Context) {
 	).Decode(&updatedReview)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Review not found or already processed"})
+		errs.Abort(c, errs.ReviewNotFound)
 		return
 	}
 

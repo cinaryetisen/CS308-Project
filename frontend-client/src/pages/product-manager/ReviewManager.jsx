@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { apiRequest } from "../../api/client";
 
 const RATING_LABELS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];
 
@@ -28,19 +27,10 @@ function ReviewCard({ review, rating, onModerated }) {
         setSaving(action);
         setFeedback(null);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/reviews/${review.id}/moderate`, {
+            await apiRequest(`/api/reviews/${review.id}/moderate`, {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
                 body: JSON.stringify({ action }),
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Action failed");
-            }
             onModerated(review.id);
         } catch (err) {
             setFeedback(err.message);
@@ -116,13 +106,7 @@ export default function ReviewManager() {
     useEffect(() => {
         async function fetchPending() {
             try {
-                const token = localStorage.getItem("token");
-                const res = await fetch(`${API_BASE}/api/reviews/pending`, {
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                if (!res.ok) throw new Error("Failed to fetch pending reviews");
-                const data = await res.json();
-                const pending = data || [];
+                const pending = (await apiRequest("/api/reviews/pending")) || [];
                 setReviews(pending);
 
                 // Collect unique product IDs and fetch their ratings
@@ -131,9 +115,7 @@ export default function ReviewManager() {
                 await Promise.all(
                     uniqueProductIds.map(async (productId) => {
                         try {
-                            const rRes = await fetch(`${API_BASE}/api/products/${productId}/ratings`);
-                            if (!rRes.ok) return;
-                            const ratings = await rRes.json();
+                            const ratings = await apiRequest(`/api/products/${productId}/ratings`, {}, false);
                             (ratings || []).forEach((r) => {
                                 map[`${productId}:${r.user_id}`] = r.rating;
                             });
