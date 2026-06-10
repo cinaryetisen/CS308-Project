@@ -92,7 +92,6 @@ export default function Payment() {
             localStorage.removeItem("cart");
             if (refreshCartCount) refreshCartCount();
 
-            // ── F4: Navigate to invoice page instead of alert ──
             navigate(`/invoice/${data.order.delivery_id}`, { state: { order: data.order } });
 
         } catch (error) {
@@ -103,25 +102,25 @@ export default function Payment() {
         }
     };
 
-    const inputClass = "w-full px-4 py-3 bg-gray-50 dark:bg-[#251912] border border-gray-300 dark:border-[#4e4350] rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-[#8a47af] focus:outline-none text-gray-900 dark:text-[#f5ded3] placeholder-gray-400 dark:placeholder-[#9a8c9b] transition-colors";
-    const labelClass = "block text-sm font-label uppercase tracking-widest text-gray-700 dark:text-[#6d6452] mb-2 font-bold";
+    const inputClass = "w-full px-4 py-3 bg-[var(--surface-alt)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-dim)] focus:outline-none text-[var(--text)] placeholder-[var(--muted)] transition-colors";
+    const labelClass = "block text-sm font-label uppercase tracking-widest text-[var(--muted)] mb-2 font-bold";
 
     return (
         <div className="min-h-screen flex flex-col items-center py-12 w-full max-w-3xl mx-auto px-6">
 
             {/* Header */}
             <div className="w-full mb-8 flex justify-between items-center">
-                <Link to="/shoppingcart" className="text-gray-500 dark:text-[#d1c5b0] hover:text-purple-600 dark:hover:text-[#e7b4ff] font-medium transition-colors">
+                <Link to="/shoppingcart" className="text-[var(--muted)] hover:text-[var(--accent)] font-medium transition-colors">
                     &larr; Back to Cart
                 </Link>
-                <h1 className="text-3xl font-headline italic text-gray-900 dark:text-[#f5ded3]">Secure Checkout</h1>
+                <h1 className="text-3xl font-headline italic text-[var(--text)]">Secure Checkout</h1>
             </div>
 
             {/* Form Card */}
-            <div className="w-full bg-white dark:bg-[#160c06] p-8 rounded-xl shadow-lg border border-gray-200 dark:border-[#342720]">
+            <div className="w-full bg-[var(--surface)] p-8 rounded-xl shadow-lg border border-[var(--border)]">
 
                 {checkoutError && (
-                    <div className="mb-6 p-4 bg-red-100 dark:bg-[#93000a] text-red-700 dark:text-[#ffdad6] text-sm rounded-lg border border-red-200 dark:border-transparent text-center font-bold">
+                    <div className="mb-6 p-4 bg-[#93000a] text-[#ffdad6] text-sm rounded-lg text-center font-bold">
                         {checkoutError}
                     </div>
                 )}
@@ -141,7 +140,7 @@ export default function Payment() {
                         />
                     </div>
 
-                    <div className="h-px w-full bg-gray-200 dark:bg-[#342720] my-6" />
+                    <div className="h-px w-full bg-[var(--border)] my-6" />
 
                     {/* Cardholder Name */}
                     <div>
@@ -205,8 +204,8 @@ export default function Payment() {
                         disabled={isProcessing}
                         className={`w-full py-4 mt-6 font-bold text-lg rounded-lg shadow-lg active:scale-95 transition-all duration-150 ${
                             isProcessing
-                                ? "bg-gray-400 dark:bg-[#342720] text-gray-700 dark:text-[#9a8c9b] cursor-not-allowed"
-                                : "bg-gradient-to-r from-[#8a47af] to-[#500075] dark:from-[#e7b4ff] dark:to-[#8a47af] text-white dark:text-[#300049] hover:brightness-110 bubble-pop"
+                                ? "bg-[var(--surface-alt)] text-[var(--muted)] cursor-not-allowed"
+                                : "bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110 bubble-pop"
                         }`}
                     >
                         {isProcessing ? "Processing Securely..." : "Confirm Order"}

@@ -6,7 +6,7 @@ export default function ProductDetail() {
     const { id }   = useParams();
     const navigate = useNavigate();
 
-    const { refreshCartCount } = useOutletContext() || {};
+    const { refreshCartCount, refreshWishlistCount } = useOutletContext() || {};
 
     const [product, setProduct]   = useState(null);
     const [loading, setLoading]   = useState(true);
@@ -158,6 +158,7 @@ export default function ProductDetail() {
                 });
                 setIsWishlisted(true);
             }
+            if (refreshWishlistCount) refreshWishlistCount();
         } catch (err) {
             console.error(err);
         } finally {
@@ -223,19 +224,19 @@ export default function ProductDetail() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center min-h-screen bg-[#1a0f0a]">
-                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Summoning artifact…</p>
+            <div className="flex justify-center items-center min-h-screen bg-[var(--bg)]">
+                <p className="text-[var(--muted)] tracking-widest animate-pulse">Summoning artifact…</p>
             </div>
         );
     }
 
     if (error || !product) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-[#1a0f0a] gap-6">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--bg)] gap-6">
                 <p className="text-[#ffdad6] text-lg">{error || "Artifact not found."}</p>
                 <button
                     onClick={() => navigate("/")}
-                    className="px-6 py-2 rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] font-semibold hover:brightness-110 transition"
+                    className="px-6 py-2 rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] font-semibold hover:brightness-110 transition"
                 >
                     ← Return to the Vault
                 </button>
@@ -248,34 +249,34 @@ export default function ProductDetail() {
     const displayStar     = hoveredStar || myRating;
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
 
             {/* Breadcrumb */}
-            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[#9a8c9b] flex gap-2 items-center">
-                <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                <span className="text-[#342720]">/</span>
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[var(--muted)] flex gap-2 items-center">
+                <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                <span className="text-[var(--border)]">/</span>
                 {product.category && (
                     <>
                         <Link
                             to={`/?category=${encodeURIComponent(product.category)}`}
-                            className="hover:text-[#e7b4ff] transition-colors capitalize"
+                            className="hover:text-[var(--accent)] transition-colors capitalize"
                         >
                             {product.category}
                         </Link>
-                        <span className="text-[#342720]">/</span>
+                        <span className="text-[var(--border)]">/</span>
                     </>
                 )}
-                <span className="text-[#f5ded3] truncate font-medium">{product.name}</span>
+                <span className="text-[var(--text)] truncate font-medium">{product.name}</span>
             </div>
 
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex flex-col gap-8">
 
                 {/* Product Card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg overflow-hidden shadow-[0_0_40px_rgba(138,71,175,0.08)]">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden shadow-[0_0_40px_rgba(138,71,175,0.08)]">
                     <div className="flex flex-col md:flex-row min-h-[500px]">
 
                         {/* LEFT — Image */}
-                        <div className="md:w-1/2 relative overflow-hidden border-b md:border-b-0 md:border-r border-[#342720]">
+                        <div className="md:w-1/2 relative overflow-hidden border-b md:border-b-0 md:border-r border-[var(--border)]">
 
                             <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm z-10
                                 ${outOfStock ? 'bg-[#93000a] text-[#ffdad6]' : 'bg-[#add461] text-[#131f00]'}`}>
@@ -283,7 +284,7 @@ export default function ProductDetail() {
                             </div>
 
                             {discountedPrice && (
-                                <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#e7b4ff] text-[#300049] shadow-sm z-10">
+                                <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[var(--btn-from)] text-[var(--on-accent)] shadow-sm z-10">
                                     -{product.discount}%
                                 </div>
                             )}
@@ -295,8 +296,8 @@ export default function ProductDetail() {
                                     className="w-full h-full object-cover min-h-[340px] md:min-h-[500px] transition-transform duration-500 hover:scale-105"
                                 />
                             ) : (
-                                <div className="w-full h-full min-h-[340px] md:min-h-[500px] flex items-center justify-center bg-[#1a0f0a]">
-                                    <span className="text-[#342720] text-8xl">✦</span>
+                                <div className="w-full h-full min-h-[340px] md:min-h-[500px] flex items-center justify-center bg-[var(--bg)]">
+                                    <span className="text-[var(--border)] text-8xl">✦</span>
                                 </div>
                             )}
                         </div>
@@ -310,13 +311,13 @@ export default function ProductDetail() {
                                 </span>
                             )}
 
-                            <h1 className="text-2xl sm:text-3xl font-serif text-[#f5ded3] leading-snug">
+                            <h1 className="text-2xl sm:text-3xl font-serif text-[var(--text)] leading-snug">
                                 {product.name}
                             </h1>
 
                             <div className="flex items-center gap-2">
                                 {renderStars(product.rating, "text-lg")}
-                                <span className="text-[#9a8c9b] text-sm">
+                                <span className="text-[var(--muted)] text-sm">
                                     {Number(product.rating).toFixed(1)} ({product.review_count} ratings)
                                 </span>
                             </div>
@@ -324,14 +325,14 @@ export default function ProductDetail() {
                             <div>
                                 {discountedPrice ? (
                                     <div className="flex items-center gap-3 flex-wrap">
-                                        <span className="text-3xl font-bold text-[#e7b4ff]">${discountedPrice.toFixed(2)}</span>
-                                        <span className="text-lg text-[#9a8c9b] line-through">${Number(product.price).toFixed(2)}</span>
-                                        <span className="text-xs text-[#300049] bg-[#e7b4ff] px-2 py-0.5 rounded-full font-bold">
+                                        <span className="text-3xl font-bold text-[var(--accent)]">${discountedPrice.toFixed(2)}</span>
+                                        <span className="text-lg text-[var(--muted)] line-through">${Number(product.price).toFixed(2)}</span>
+                                        <span className="text-xs text-[var(--on-accent)] bg-[var(--btn-from)] px-2 py-0.5 rounded-full font-bold">
                                             -{product.discount}%
                                         </span>
                                     </div>
                                 ) : (
-                                    <span className="text-3xl font-bold text-[#e7b4ff]">${Number(product.price).toFixed(2)}</span>
+                                    <span className="text-3xl font-bold text-[var(--accent)]">${Number(product.price).toFixed(2)}</span>
                                 )}
                             </div>
 
@@ -340,16 +341,16 @@ export default function ProductDetail() {
                             </p>
 
                             {product.description && (
-                                <p className="text-[#9a8c9b] text-sm leading-relaxed border-t border-[#342720] pt-4">
+                                <p className="text-[var(--muted)] text-sm leading-relaxed border-t border-[var(--border)] pt-4">
                                     {product.description}
                                 </p>
                             )}
 
-                            <div className="text-xs text-[#9a8c9b]/70 flex flex-col gap-1 border-t border-[#342720] pt-3">
-                                {product.model         && <span>Model: <span className="text-[#9a8c9b]">{product.model}</span></span>}
-                                {product.serial_number && <span>Serial No: <span className="text-[#9a8c9b]">{product.serial_number}</span></span>}
-                                {product.warranty      && <span>Warranty: <span className="text-[#9a8c9b]">{product.warranty}</span></span>}
-                                {product.distributor   && <span>Distributor: <span className="text-[#9a8c9b]">{product.distributor}</span></span>}
+                            <div className="text-xs text-[var(--muted)]/70 flex flex-col gap-1 border-t border-[var(--border)] pt-3">
+                                {product.model         && <span>Model: <span className="text-[var(--muted)]">{product.model}</span></span>}
+                                {product.serial_number && <span>Serial No: <span className="text-[var(--muted)]">{product.serial_number}</span></span>}
+                                {product.warranty      && <span>Warranty: <span className="text-[var(--muted)]">{product.warranty}</span></span>}
+                                {product.distributor   && <span>Distributor: <span className="text-[var(--muted)]">{product.distributor}</span></span>}
                             </div>
 
                             {product.tags && product.tags.length > 0 && (
@@ -357,7 +358,7 @@ export default function ProductDetail() {
                                     {product.tags.map((tag) => (
                                         <span
                                             key={tag}
-                                            className="text-xs bg-[#1a0f0a] border border-[#342720] text-[#9a8c9b] px-3 py-1 rounded-full hover:border-[#8a47af] hover:text-[#e7b4ff] transition-colors"
+                                            className="text-xs bg-[var(--bg)] border border-[var(--border)] text-[var(--muted)] px-3 py-1 rounded-full hover:border-[var(--accent-dim)] hover:text-[var(--accent)] transition-colors"
                                         >
                                             {tag}
                                         </span>
@@ -378,20 +379,20 @@ export default function ProductDetail() {
 
                             {!outOfStock && (
                                 <div className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-[#9a8c9b]">Quantity:</span>
-                                    <div className="flex items-center border border-[#342720] rounded overflow-hidden">
+                                    <span className="text-sm font-medium text-[var(--muted)]">Quantity:</span>
+                                    <div className="flex items-center border border-[var(--border)] rounded overflow-hidden">
                                         <button
                                             onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                                            className="px-3 py-2 bg-[#1a0f0a] hover:bg-[#342720] text-[#e7b4ff] font-bold transition"
+                                            className="px-3 py-2 bg-[var(--bg)] hover:bg-[var(--surface-alt)] text-[var(--accent)] font-bold transition"
                                         >
                                             −
                                         </button>
-                                        <span className="px-4 py-2 text-sm font-semibold min-w-[2.5rem] text-center text-[#f5ded3] bg-[#251912]">
+                                        <span className="px-4 py-2 text-sm font-semibold min-w-[2.5rem] text-center text-[var(--text)] bg-[var(--surface)]">
                                             {quantity}
                                         </span>
                                         <button
                                             onClick={() => setQuantity((q) => Math.min(product.quantity, q + 1))}
-                                            className="px-3 py-2 bg-[#1a0f0a] hover:bg-[#342720] text-[#e7b4ff] font-bold transition"
+                                            className="px-3 py-2 bg-[var(--bg)] hover:bg-[var(--surface-alt)] text-[var(--accent)] font-bold transition"
                                         >
                                             +
                                         </button>
@@ -405,8 +406,8 @@ export default function ProductDetail() {
                                 disabled={wishlistLoading}
                                 className={`w-full py-2.5 rounded font-semibold border transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-50 ${
                                     isWishlisted
-                                        ? "border-[#8a47af] bg-[#8a47af]/10 text-[#e7b4ff] hover:bg-[#93000a]/10 hover:border-[#93000a] hover:text-[#ffdad6]"
-                                        : "border-[#342720] text-[#9a8c9b] hover:border-[#8a47af] hover:text-[#e7b4ff]"
+                                        ? "border-[var(--accent-dim)] bg-[var(--accent-dim)]/10 text-[var(--accent)] hover:bg-[#93000a]/10 hover:border-[#93000a] hover:text-[#ffdad6]"
+                                        : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent-dim)] hover:text-[var(--accent)]"
                                 }`}
                             >
                                 <span className="text-lg leading-none">
@@ -425,8 +426,8 @@ export default function ProductDetail() {
                                 disabled={outOfStock}
                                 className={`w-full py-3 rounded font-semibold active:scale-95 transition-all duration-150 shadow-md ${
                                     outOfStock
-                                        ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
-                                        : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                        ? "bg-[var(--surface-alt)] text-[var(--muted)] cursor-not-allowed"
+                                        : "bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110"
                                 }`}
                             >
                                 {outOfStock ? "Unavailable" : "Add to Cart"}
@@ -434,7 +435,7 @@ export default function ProductDetail() {
 
                             <Link
                                 to="/"
-                                className="text-center text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors"
+                                className="text-center text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                             >
                                 ← Return to the Vault
                             </Link>
@@ -443,20 +444,20 @@ export default function ProductDetail() {
                 </div>
 
                 {/* Ratings & Reviews */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg p-6 sm:p-8 flex flex-col gap-6">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-6 sm:p-8 flex flex-col gap-6">
 
-                    <h2 className="text-xl font-serif text-[#f5ded3]">
+                    <h2 className="text-xl font-serif text-[var(--text)]">
                         Ratings &amp; Reviews
                         {reviews.length > 0 && (
-                            <span className="ml-2 text-sm font-normal text-[#9a8c9b]">({reviews.length} comments)</span>
+                            <span className="ml-2 text-sm font-normal text-[var(--muted)]">({reviews.length} comments)</span>
                         )}
                     </h2>
 
                     {isLoggedIn ? (
-                        <div className="border border-[#342720] rounded-lg p-5 flex flex-col gap-5 bg-[#1a0f0a]">
+                        <div className="border border-[var(--border)] rounded-lg p-5 flex flex-col gap-5 bg-[var(--bg)]">
 
                             <div className="flex flex-col gap-2">
-                                <p className="text-sm font-semibold text-[#9a8c9b] uppercase tracking-widest">
+                                <p className="text-sm font-semibold text-[var(--muted)] uppercase tracking-widest">
                                     Your Rating
                                 </p>
                                 <div className="flex items-center gap-1">
@@ -470,16 +471,16 @@ export default function ProductDetail() {
                                             disabled={submittingRating}
                                             className="text-2xl transition-transform hover:scale-125 focus:outline-none disabled:opacity-50"
                                         >
-                                            <span className={displayStar >= star ? "text-yellow-400" : "text-[#342720]"}>★</span>
+                                            <span className={displayStar >= star ? "text-yellow-400" : "text-[var(--border)]"}>★</span>
                                         </button>
                                     ))}
                                     {myRating > 0 && (
-                                        <span className="ml-2 text-sm text-[#9a8c9b]">
+                                        <span className="ml-2 text-sm text-[var(--muted)]">
                                             {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][myRating]}
                                         </span>
                                     )}
                                     {submittingRating && (
-                                        <span className="ml-2 text-xs text-[#9a8c9b] animate-pulse">Saving…</span>
+                                        <span className="ml-2 text-xs text-[var(--muted)] animate-pulse">Saving…</span>
                                     )}
                                 </div>
                                 {ratingMsg && (
@@ -489,8 +490,8 @@ export default function ProductDetail() {
                                 )}
                             </div>
 
-                            <div className="flex flex-col gap-2 border-t border-[#342720] pt-4">
-                                <p className="text-sm font-semibold text-[#9a8c9b] uppercase tracking-widest">
+                            <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-4">
+                                <p className="text-sm font-semibold text-[var(--muted)] uppercase tracking-widest">
                                     Leave a Comment
                                 </p>
                                 <textarea
@@ -498,7 +499,7 @@ export default function ProductDetail() {
                                     onChange={(e) => setNewComment(e.target.value)}
                                     placeholder="Share your experience with this artifact..."
                                     rows={3}
-                                    className="w-full bg-[#251912] border border-[#342720] rounded px-4 py-3 text-sm text-[#f5ded3] placeholder-[#9a8c9b] resize-none focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded px-4 py-3 text-sm text-[var(--text)] placeholder-[var(--muted)] resize-none focus:outline-none focus:border-[var(--accent)] transition-colors"
                                 />
                                 {reviewError && (
                                     <p className="text-sm text-[#ffdad6]">{reviewError}</p>
@@ -509,46 +510,46 @@ export default function ProductDetail() {
                                 <button
                                     onClick={handleSubmitReview}
                                     disabled={submittingReview}
-                                    className="self-end px-6 py-2 bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] text-sm font-semibold rounded transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                    className="self-end px-6 py-2 bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] text-sm font-semibold rounded transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                                 >
                                     {submittingReview ? "Submitting…" : "Submit Comment"}
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <div className="border border-dashed border-[#342720] rounded-lg p-5 text-center text-sm text-[#9a8c9b]">
-                            <Link to="/login" className="text-[#e7b4ff] hover:underline font-medium">Log in</Link>
+                        <div className="border border-dashed border-[var(--border)] rounded-lg p-5 text-center text-sm text-[var(--muted)]">
+                            <Link to="/login" className="text-[var(--accent)] hover:underline font-medium">Log in</Link>
                             {" "}to rate and review this artifact.
                         </div>
                     )}
 
                     {reviewsLoading ? (
-                        <p className="text-sm text-[#9a8c9b] animate-pulse">Loading reviews…</p>
+                        <p className="text-sm text-[var(--muted)] animate-pulse">Loading reviews…</p>
                     ) : reviews.length === 0 ? (
-                        <p className="text-sm text-[#9a8c9b]">No approved reviews yet. Be the first to speak.</p>
+                        <p className="text-sm text-[var(--muted)]">No approved reviews yet. Be the first to speak.</p>
                     ) : (
-                        <div className="flex flex-col divide-y divide-[#342720]">
+                        <div className="flex flex-col divide-y divide-[var(--border)]">
                             {reviews.map((review) => (
                                 <div key={review.id} className="py-5 flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-[#8a47af]/20 border border-[#8a47af]/40 flex items-center justify-center text-[#e7b4ff] font-bold text-sm flex-shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-[#8a47af]/20 border border-[#8a47af]/40 flex items-center justify-center text-[var(--accent)] font-bold text-sm flex-shrink-0">
                                             {review.user_name?.charAt(0).toUpperCase() || "?"}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-semibold text-[#f5ded3]">{review.user_name}</p>
-                                            <p className="text-xs text-[#9a8c9b]">{formatDate(review.created_at)}</p>
+                                            <p className="text-sm font-semibold text-[var(--text)]">{review.user_name}</p>
+                                            <p className="text-xs text-[var(--muted)]">{formatDate(review.created_at)}</p>
                                         </div>
                                     </div>
                                     {ratingsMap[review.user_id] && (
                                         <div className="flex items-center gap-1 pl-11">
                                             {renderStars(ratingsMap[review.user_id], "text-sm")}
-                                            <span className="text-xs text-[#9a8c9b]">
+                                            <span className="text-xs text-[var(--muted)]">
                                                 {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][ratingsMap[review.user_id]]}
                                             </span>
                                         </div>
                                     )}
                                     {review.comment && (
-                                        <p className="text-sm text-[#9a8c9b] leading-relaxed pl-11">{review.comment}</p>
+                                        <p className="text-sm text-[var(--muted)] leading-relaxed pl-11">{review.comment}</p>
                                     )}
                                 </div>
                             ))}

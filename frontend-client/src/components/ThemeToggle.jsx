@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 
 export default function ThemeToggle() {
-    // We set the default state to dark mode
     const [isDark, setIsDark] = useState(true);
 
-    // This runs once when the page loads to check if they saved a preference
     useEffect(() => {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'light') {
@@ -16,7 +14,6 @@ export default function ThemeToggle() {
         }
     }, []);
 
-    // This function runs when the button is clicked
     const toggleTheme = () => {
         if (isDark) {
             document.documentElement.classList.remove('dark');
@@ -30,13 +27,13 @@ export default function ThemeToggle() {
     };
 
     return (
-        <button 
-            onClick={toggleTheme} 
-            className="p-2 flex items-center justify-center rounded-lg border border-[#342720] hover:bg-[#342720] transition-colors bubble-pop"
+        <button
+            onClick={toggleTheme}
+            className="p-2 flex items-center justify-center rounded-lg border border-[var(--border)] hover:bg-[var(--surface-alt)] transition-colors bubble-pop"
             title="Toggle Light/Dark Mode"
         >
-            <span className="material-symbols-outlined text-[#e7b4ff]">
-                {isDark ? 'light_mode' : 'dark_mode'}
+            <span className="text-lg leading-none">
+                {isDark ? '☀️' : '🌙'}
             </span>
         </button>
     );

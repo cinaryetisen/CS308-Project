@@ -67,41 +67,41 @@ export default function UserProfile() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center">
-                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Summoning profile…</p>
+            <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+                <p className="text-[var(--muted)] tracking-widest animate-pulse">Summoning profile…</p>
             </div>
         );
     }
 
     const inputClass =
-        "w-full bg-[#1a0f0a] border border-[#342720] px-4 py-2.5 rounded text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors";
+        "w-full bg-[var(--bg)] border border-[var(--border)] px-4 py-2.5 rounded text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors";
 
-    const labelClass = "text-[10px] uppercase tracking-widest font-semibold text-[#9a8c9b]";
+    const labelClass = "text-[10px] uppercase tracking-widest font-semibold text-[var(--muted)]";
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
             <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-5">
 
                 {/* Breadcrumb */}
-                <div className="text-sm text-[#9a8c9b] flex gap-2 items-center">
-                    <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                    <span className="text-[#342720]">/</span>
-                    <span className="text-[#f5ded3] font-medium">My Profile</span>
+                <div className="text-sm text-[var(--muted)] flex gap-2 items-center">
+                    <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                    <span className="text-[var(--border)]">/</span>
+                    <span className="text-[var(--text)] font-medium">My Profile</span>
                 </div>
 
                 {/* Header card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg p-5 flex items-center gap-4 shadow-[0_0_30px_rgba(138,71,175,0.06)]">
-                    <div className="w-14 h-14 rounded-full bg-[#8a47af]/20 border border-[#8a47af]/50 flex items-center justify-center text-xl font-bold text-[#e7b4ff] shrink-0">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-5 flex items-center gap-4 shadow-[0_0_30px_rgba(138,71,175,0.06)]">
+                    <div className="w-14 h-14 rounded-full bg-[#8a47af]/20 border border-[#8a47af]/50 flex items-center justify-center text-xl font-bold text-[var(--accent)] shrink-0">
                         {getInitials(user?.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-xl font-serif text-[#f5ded3] truncate">{user?.name || "—"}</h1>
-                        <p className="text-sm text-[#9a8c9b] mt-0.5 truncate">{user?.email || "—"}</p>
+                        <h1 className="text-xl font-serif text-[var(--text)] truncate">{user?.name || "—"}</h1>
+                        <p className="text-sm text-[var(--muted)] mt-0.5 truncate">{user?.email || "—"}</p>
                     </div>
                     {!editMode && (
                         <button
                             onClick={() => setEditMode(true)}
-                            className="shrink-0 px-5 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110 active:scale-95 transition-all"
+                            className="shrink-0 px-5 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110 active:scale-95 transition-all"
                         >
                             Edit Profile
                         </button>
@@ -120,20 +120,20 @@ export default function UserProfile() {
                 )}
 
                 {/* Account card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg p-6">
-                    <h2 className="text-base font-serif text-[#f5ded3] pb-3 mb-4 border-b border-[#342720]">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-6">
+                    <h2 className="text-base font-serif text-[var(--text)] pb-3 mb-4 border-b border-[var(--border)]">
                         Account
                     </h2>
                     <div className="flex flex-col gap-1">
                         <span className={labelClass}>Email</span>
-                        <p className="text-sm text-[#f5ded3]">{user?.email || "—"}</p>
+                        <p className="text-sm text-[var(--text)]">{user?.email || "—"}</p>
                     </div>
-                    <p className="text-xs text-[#9a8c9b]/60 mt-3">Email address cannot be changed.</p>
+                    <p className="text-xs text-[var(--muted)]/60 mt-3">Email address cannot be changed.</p>
                 </div>
 
                 {/* Personal details card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg p-6">
-                    <h2 className="text-base font-serif text-[#f5ded3] pb-3 mb-5 border-b border-[#342720]">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-6">
+                    <h2 className="text-base font-serif text-[var(--text)] pb-3 mb-5 border-b border-[var(--border)]">
                         Personal Details
                     </h2>
 
@@ -150,8 +150,8 @@ export default function UserProfile() {
                                     placeholder="Enter your name"
                                 />
                             ) : (
-                                <p className="text-sm text-[#f5ded3]">
-                                    {user?.name || <span className="text-[#9a8c9b]/50 italic">Not set</span>}
+                                <p className="text-sm text-[var(--text)]">
+                                    {user?.name || <span className="text-[var(--muted)]/50 italic">Not set</span>}
                                 </p>
                             )}
                         </div>
@@ -167,8 +167,8 @@ export default function UserProfile() {
                                     placeholder="Enter your tax ID"
                                 />
                             ) : (
-                                <p className="text-sm text-[#f5ded3]">
-                                    {user?.tax_id || <span className="text-[#9a8c9b]/50 italic">Not set</span>}
+                                <p className="text-sm text-[var(--text)]">
+                                    {user?.tax_id || <span className="text-[var(--muted)]/50 italic">Not set</span>}
                                 </p>
                             )}
                         </div>
@@ -185,26 +185,26 @@ export default function UserProfile() {
                                     rows={3}
                                 />
                             ) : (
-                                <p className="text-sm text-[#f5ded3] whitespace-pre-line">
-                                    {user?.home_address || <span className="text-[#9a8c9b]/50 italic">Not set</span>}
+                                <p className="text-sm text-[var(--text)] whitespace-pre-line">
+                                    {user?.home_address || <span className="text-[var(--muted)]/50 italic">Not set</span>}
                                 </p>
                             )}
                         </div>
                     </div>
 
                     {editMode && (
-                        <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-[#342720]">
+                        <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-[var(--border)]">
                             <button
                                 onClick={handleCancel}
                                 disabled={saving}
-                                className="px-5 py-2 text-sm font-medium rounded border border-[#342720] text-[#9a8c9b] hover:border-[#8a47af] hover:text-[#e7b4ff] transition-all disabled:opacity-50"
+                                className="px-5 py-2 text-sm font-medium rounded border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent-dim)] hover:text-[var(--accent)] transition-all disabled:opacity-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-6 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="px-6 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 {saving ? "Saving…" : "Save Changes"}
                             </button>
@@ -214,7 +214,7 @@ export default function UserProfile() {
 
                 <Link
                     to="/"
-                    className="text-center text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors"
+                    className="text-center text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                 >
                     ← Return to the Vault
                 </Link>

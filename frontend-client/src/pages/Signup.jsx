@@ -51,7 +51,7 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center px-4 py-12">
+        <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center px-4 py-12">
 
             {/* Ambient glow */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -62,18 +62,18 @@ export default function Signup() {
 
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <Link to="/" className="text-3xl font-serif text-[#e7b4ff] hover:text-[#f5ded3] transition-colors">
+                    <Link to="/" className="text-3xl font-serif text-[var(--accent)] hover:text-[var(--text)] transition-colors">
                         The Vault
                     </Link>
-                    <p className="mt-2 text-[#9a8c9b] text-sm tracking-widest uppercase">
+                    <p className="mt-2 text-[var(--muted)] text-sm tracking-widest uppercase">
                         Begin Your Journey
                     </p>
                 </div>
 
                 {/* Card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg p-8 shadow-[0_0_40px_rgba(138,71,175,0.08)]">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-8 shadow-[0_0_40px_rgba(138,71,175,0.08)]">
 
-                    <h2 className="text-2xl font-serif text-[#f5ded3] mb-6">
+                    <h2 className="text-2xl font-serif text-[var(--text)] mb-6">
                         Create an Account
                     </h2>
 
@@ -95,7 +95,7 @@ export default function Signup() {
 
                         {/* Full Name */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs uppercase tracking-widest text-[#9a8c9b] font-semibold">
+                            <label className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
                                 Full Name
                             </label>
                             <input
@@ -104,14 +104,14 @@ export default function Signup() {
                                 placeholder="Your full name"
                                 value={formData.fullName}
                                 onChange={handleChange}
-                                className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-4 py-2.5 text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                                 required
                             />
                         </div>
 
                         {/* Email */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs uppercase tracking-widest text-[#9a8c9b] font-semibold">
+                            <label className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
                                 Email Address
                             </label>
                             <input
@@ -121,20 +121,20 @@ export default function Signup() {
                                 placeholder="you@example.com"
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-4 py-2.5 text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                                 required
                             />
                         </div>
 
                         {/* Tax ID & Address side note */}
-                        <div className="border-t border-[#342720] pt-4 flex flex-col gap-4">
-                            <p className="text-[10px] uppercase tracking-widest text-[#9a8c9b]/60">
+                        <div className="border-t border-[var(--border)] pt-4 flex flex-col gap-4">
+                            <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]/60">
                                 Billing Information
                             </p>
 
                             {/* Tax ID */}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs uppercase tracking-widest text-[#9a8c9b] font-semibold">
+                                <label className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
                                     Tax ID
                                 </label>
                                 <input
@@ -143,14 +143,14 @@ export default function Signup() {
                                     placeholder="Your tax identification number"
                                     value={formData.taxId}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-4 py-2.5 text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                                     required
                                 />
                             </div>
 
                             {/* Home Address */}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs uppercase tracking-widest text-[#9a8c9b] font-semibold">
+                                <label className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
                                     Home Address
                                 </label>
                                 <textarea
@@ -159,15 +159,15 @@ export default function Signup() {
                                     value={formData.address}
                                     onChange={handleChange}
                                     rows={3}
-                                    className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-4 py-2.5 text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors resize-none"
+                                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
                                     required
                                 />
                             </div>
                         </div>
 
                         {/* Password */}
-                        <div className="border-t border-[#342720] pt-4 flex flex-col gap-1.5">
-                            <label className="text-xs uppercase tracking-widest text-[#9a8c9b] font-semibold">
+                        <div className="border-t border-[var(--border)] pt-4 flex flex-col gap-1.5">
+                            <label className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
                                 Password
                             </label>
                             <input
@@ -176,7 +176,7 @@ export default function Signup() {
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={handleChange}
-                                className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-4 py-2.5 text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                                 required
                             />
                         </div>
@@ -187,8 +187,8 @@ export default function Signup() {
                             disabled={loading || success}
                             className={`w-full py-3 rounded font-semibold transition-all duration-150 active:scale-95 mt-2 ${
                                 loading || success
-                                    ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
-                                    : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                    ? "bg-[var(--surface-alt)] text-[var(--muted)] cursor-not-allowed"
+                                    : "bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110"
                             }`}
                         >
                             {loading ? "Creating your account…" : "Create Account"}
@@ -197,17 +197,17 @@ export default function Signup() {
                     </form>
 
                     {/* Divider */}
-                    <div className="border-t border-[#342720] my-6" />
+                    <div className="border-t border-[var(--border)] my-6" />
 
                     {/* Links */}
-                    <div className="flex flex-col gap-2 text-sm text-center text-[#9a8c9b]">
+                    <div className="flex flex-col gap-2 text-sm text-center text-[var(--muted)]">
                         <p>
                             Already have an account?{" "}
-                            <Link to="/login" className="text-[#e7b4ff] hover:underline font-medium">
+                            <Link to="/login" className="text-[var(--accent)] hover:underline font-medium">
                                 Log in
                             </Link>
                         </p>
-                        <Link to="/" className="text-[#9a8c9b]/60 hover:text-[#9a8c9b] transition-colors text-xs">
+                        <Link to="/" className="text-[var(--muted)]/60 hover:text-[var(--muted)] transition-colors text-xs">
                             ← Return to the Vault
                         </Link>
                     </div>
