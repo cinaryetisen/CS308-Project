@@ -15,14 +15,12 @@ import (
 
 // B1: Create a new product (Product Manager Only)
 func CreateProduct(c *gin.Context) {
-	// 1. Strict Input DTO: Blocks users from injecting fake ratings or discounts!
 	var input struct {
 		Name         string   `json:"name" binding:"required"`
 		Model        string   `json:"model" binding:"required"`
 		SerialNumber string   `json:"serial_number" binding:"required"`
 		Description  string   `json:"description" binding:"required"`
-		Quantity     int      `json:"quantity" binding:"gte=0"`      // Must be 0 or greater
-		Price        float64  `json:"price" binding:"required,gt=0"` // Must be greater than 0
+		Quantity     int      `json:"quantity" binding:"gte=0"`
 		Category     string   `json:"category" binding:"required"`
 		Distributor  string   `json:"distributor" binding:"required"`
 		Warranty     string   `json:"warranty" binding:"required"`
@@ -43,16 +41,16 @@ func CreateProduct(c *gin.Context) {
 		SerialNumber: input.SerialNumber,
 		Description:  input.Description,
 		Quantity:     input.Quantity,
-		Price:        input.Price,
-		Cost:         input.Price * 0.6, // Auto-calculate cost for the profit algorithm!
-		Discount:     0.0,               // Force starting discount to 0
+		Price:        99999.99,
+		Cost:         0.0,
+		Discount:     0.0,
 		Category:     input.Category,
 		Distributor:  input.Distributor,
 		Warranty:     input.Warranty,
 		ImageURL:     input.ImageURL,
 		Tags:         input.Tags,
-		Rating:       0.0, // Force rating to 0
-		ReviewCount:  0,   // Force reviews to 0
+		Rating:       0.0,
+		ReviewCount:  0,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -67,7 +65,10 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Product created successfully", "product": product})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Product created successfully! Price temporarily set to 99,999.99 until approved by Sales.",
+		"product": product,
+	})
 }
 
 // B2: Update non-price fields (Product Manager Only)
