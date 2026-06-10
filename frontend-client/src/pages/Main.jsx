@@ -5,7 +5,7 @@ import { apiRequest } from '../api/client';
 export default function Main() {
     const navigate = useNavigate();
 
-    const { refreshCartCount } = useOutletContext();
+    const { refreshCartCount, refreshWishlistCount } = useOutletContext();
 
     const [searchParams] = useSearchParams();
     const categoryParam = searchParams.get("category");
@@ -32,14 +32,8 @@ export default function Main() {
         if (!isLoggedIn) return;
         const fetchWishlist = async () => {
             try {
-                const token = localStorage.getItem("token");
-                const res   = await fetch(`${API_URL}/api/wishlist`, {
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setWishlist(Array.isArray(data) ? data.map((item) => item.id) : []);
-                }
+                const data = await apiRequest("/api/wishlist");
+                setWishlist(Array.isArray(data) ? data.map((item) => item.id) : []);
             } catch (err) {
                 console.error(err);
             }
@@ -77,24 +71,17 @@ export default function Main() {
         }
         const isWishlisted = wishlist.includes(productId);
         try {
-            const token = localStorage.getItem("token");
             if (isWishlisted) {
-                await fetch(`${API_URL}/api/wishlist/${productId}`, {
-                    method:  "DELETE",
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
+                await apiRequest(`/api/wishlist/${productId}`, { method: "DELETE" });
                 setWishlist((prev) => prev.filter((id) => id !== productId));
             } else {
-                await fetch(`${API_URL}/api/wishlist`, {
-                    method:  "POST",
-                    headers: {
-                        "Content-Type":  "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
+                await apiRequest("/api/wishlist", {
+                    method: "POST",
                     body: JSON.stringify({ product_id: productId }),
                 });
                 setWishlist((prev) => [...prev, productId]);
             }
+            refreshWishlistCount();
         } catch (err) {
             console.error(err);
         }
@@ -138,10 +125,10 @@ export default function Main() {
     };
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <h2 className="text-4xl font-serif text-[#f5ded3] capitalize">
+                    <h2 className="text-4xl font-serif text-[var(--text)] capitalize">
                         {categoryParam ? `The Vault — ${categoryParam}` : "The Vault of Essence"}
                     </h2>
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -150,12 +137,12 @@ export default function Main() {
                             placeholder="Search artifacts..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full sm:w-64 bg-[#251912] border border-[#342720] px-4 py-2 rounded text-sm text-[#f5ded3] placeholder-[#9a8c9b] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                            className="w-full sm:w-64 bg-[var(--surface)] border border-[var(--border)] px-4 py-2 rounded text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                         />
                         <select
                             value={sortOption}
                             onChange={(e) => setSortOption(e.target.value)}
-                            className="w-full sm:w-auto bg-[#251912] border border-[#342720] px-3 py-2 rounded text-sm text-[#f5ded3] focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                            className="w-full sm:w-auto bg-[var(--surface)] border border-[var(--border)] px-3 py-2 rounded text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                         >
                             <option value="default">Featured</option>
                             <option value="price-asc">Price ↑</option>
@@ -166,9 +153,9 @@ export default function Main() {
                 </div>
 
                 {loading ? (
-                    <p className="text-center py-20 text-[#9a8c9b]">Loading...</p>
+                    <p className="text-center py-20 text-[var(--muted)]">Loading...</p>
                 ) : products.length === 0 ? (
-                    <p className="text-center py-20 text-[#9a8c9b]">No products found.</p>
+                    <p className="text-center py-20 text-[var(--muted)]">No products found.</p>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
                         {products.map((product) => {
@@ -181,48 +168,48 @@ export default function Main() {
                                 <div
                                     key={product.id}
                                     onClick={() => navigate(`/products/${product.id}`)}
-                                    className="group relative overflow-hidden bg-[#251912] border border-[#342720] hover:border-[#8a47af] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg p-4 transition-all duration-300 cursor-pointer flex flex-col"
+                                    className="group relative overflow-hidden bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent-dim)] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg p-4 transition-all duration-300 cursor-pointer flex flex-col"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-[#e7b4ff]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                                     {/* Wishlist button */}
                                     <button
                                         onClick={(e) => toggleWishlist(e, product.id)}
-                                        className="absolute top-3 left-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-[#1a0f0a]/70 border border-[#342720] hover:border-[#8a47af] transition-all"
+                                        className="absolute top-3 left-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-[var(--bg)]/70 border border-[var(--border)] hover:border-[var(--accent-dim)] transition-all"
                                         title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                                     >
-                                        <span className={`text-sm ${isWishlisted ? "text-[#e7b4ff]" : "text-[#9a8c9b]"}`}>
+                                        <span className={`text-sm ${isWishlisted ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}>
                                             {isWishlisted ? "♥" : "♡"}
                                         </span>
                                     </button>
 
-                                    <div className="relative z-10 aspect-[4/5] mb-4 overflow-hidden rounded border border-[#342720]/50">
+                                    <div className="relative z-10 aspect-[4/5] mb-4 overflow-hidden rounded border border-[var(--border)]/50">
                                         <img src={product.image_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                         <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm ${outOfStock ? 'bg-[#93000a] text-[#ffdad6]' : 'bg-[#add461] text-[#131f00]'}`}>
                                             {outOfStock ? "Out of Stock" : "In Stock"}
                                         </div>
                                         {discountedPrice && (
-                                            <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#e7b4ff] text-[#300049] shadow-sm">
+                                            <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[var(--btn-from)] text-[var(--on-accent)] shadow-sm">
                                                 -{product.discount}%
                                             </div>
                                         )}
                                     </div>
 
                                     <span className="relative z-10 text-[10px] uppercase tracking-widest text-[#add461] mb-1">{product.category || "Artifact"}</span>
-                                    <h3 className="relative z-10 text-lg font-serif text-[#f5ded3] line-clamp-2">{product.name}</h3>
+                                    <h3 className="relative z-10 text-lg font-serif text-[var(--text)] line-clamp-2">{product.name}</h3>
 
-                                    <div className="relative z-10 text-sm text-[#9a8c9b] mt-1">
+                                    <div className="relative z-10 text-sm text-[var(--muted)] mt-1">
                                         <span className="text-[#add461]">⭐ {Number(product.rating).toFixed(1)}</span> ({product.review_count} reviews)
                                     </div>
 
                                     <div className="relative z-10 mt-2 mb-4">
                                         {discountedPrice ? (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[#e7b4ff] font-bold">${discountedPrice.toFixed(2)}</span>
-                                                <span className="text-sm text-[#9a8c9b] line-through">${Number(product.price).toFixed(2)}</span>
+                                                <span className="text-[var(--accent)] font-bold">${discountedPrice.toFixed(2)}</span>
+                                                <span className="text-sm text-[var(--muted)] line-through">${Number(product.price).toFixed(2)}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-[#e7b4ff] font-bold">${Number(product.price).toFixed(2)}</span>
+                                            <span className="text-[var(--accent)] font-bold">${Number(product.price).toFixed(2)}</span>
                                         )}
                                     </div>
 
@@ -230,11 +217,11 @@ export default function Main() {
                                         onClick={(e) => addToCart(e, product)}
                                         disabled={outOfStock}
                                         className={`relative z-10 mt-auto w-full py-2 rounded font-semibold active:scale-95 transition-all duration-150 shadow-md ${
-                                            outOfStock ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
+                                            outOfStock ? "bg-[var(--surface-alt)] text-[var(--muted)] cursor-not-allowed"
                                                 : feedback === "added" ? "bg-[#add461] text-[#131f00]"
                                                     : feedback === "maxed" ? "bg-[#93000a] text-[#ffdad6]"
                                                         : feedback === "error" ? "bg-[#93000a] text-[#ffdad6]"
-                                                            : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                                            : "bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110"
                                         }`}
                                     >
                                         {outOfStock ? "Unavailable" : feedback === "added" ? "✓ Added" : feedback === "maxed" ? "Max Reached" : feedback === "error" ? "Failed" : "Add to Cart"}

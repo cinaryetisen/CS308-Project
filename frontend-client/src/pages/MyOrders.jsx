@@ -7,7 +7,7 @@ const STATUS_STYLES = {
     "in-transit": "bg-[#1a1f3a]/60 text-[#b4d4ff] border border-[#2a3560]/50",
     delivered:    "bg-[#add461]/10 text-[#add461] border border-[#add461]/30",
     cancelled:    "bg-[#93000a]/20 text-[#ffdad6] border border-[#93000a]/40",
-    returned:     "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]",
+    returned:     "bg-[var(--surface-alt)]/60 text-[var(--muted)] border border-[var(--border)]",
 };
 
 const REFUND_STATUS_STYLES = {
@@ -19,7 +19,7 @@ const REFUND_STATUS_STYLES = {
 const STATUS_STEPS = ["processing", "in-transit", "delivered"];
 
 function StatusBadge({ status }) {
-    const style = STATUS_STYLES[status] || "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]";
+    const style = STATUS_STYLES[status] || "bg-[var(--surface-alt)]/60 text-[var(--muted)] border border-[var(--border)]";
     const label = status.charAt(0).toUpperCase() + status.slice(1);
     return (
         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${style}`}>
@@ -40,17 +40,17 @@ function StatusTracker({ status }) {
                         <div className="flex flex-col items-center flex-1">
                             <div className={`w-3 h-3 rounded-full border-2 transition-colors ${
                                 isCompleted ? "bg-[#add461] border-[#add461]"
-                                    : isActive   ? "bg-transparent border-[#e7b4ff]"
-                                        :              "bg-transparent border-[#342720]"
+                                    : isActive   ? "bg-transparent border-[var(--accent)]"
+                                        :              "bg-transparent border-[var(--border)]"
                             }`} />
                             <span className={`text-[10px] mt-1 font-semibold capitalize tracking-wide ${
-                                isActive ? "text-[#e7b4ff]" : isCompleted ? "text-[#add461]" : "text-[#342720]"
+                                isActive ? "text-[var(--accent)]" : isCompleted ? "text-[#add461]" : "text-[var(--border)]"
                             }`}>
                                 {step}
                             </span>
                         </div>
                         {i < STATUS_STEPS.length - 1 && (
-                            <div className={`h-px flex-1 mb-4 ${i < currentIndex ? "bg-[#add461]" : "bg-[#342720]"}`} />
+                            <div className={`h-px flex-1 mb-4 ${i < currentIndex ? "bg-[#add461]" : "bg-[var(--border)]"}`} />
                         )}
                     </div>
                 );
@@ -68,10 +68,10 @@ function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmit
     const product        = productMap[item.product_id];
 
     if (existingRefund) {
-        const refundStyle = REFUND_STATUS_STYLES[existingRefund.status] || "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]";
+        const refundStyle = REFUND_STATUS_STYLES[existingRefund.status] || "bg-[var(--surface-alt)]/60 text-[var(--muted)] border border-[var(--border)]";
         return (
-            <div className="flex items-center justify-between px-4 py-2 bg-[#1a0f0a] rounded border border-[#342720] text-sm mt-2">
-                <span className="text-[#9a8c9b] text-xs">Refund requested</span>
+            <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg)] rounded border border-[var(--border)] text-sm mt-2">
+                <span className="text-[var(--muted)] text-xs">Refund requested</span>
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${refundStyle}`}>
                     {existingRefund.status.charAt(0).toUpperCase() + existingRefund.status.slice(1)}
                 </span>
@@ -105,7 +105,7 @@ function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmit
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={`Reason for returning ${product?.name || "this item"}...`}
                 rows={2}
-                className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-3 py-2 text-sm text-[#f5ded3] placeholder-[#9a8c9b] resize-none focus:outline-none focus:border-[#e7b4ff] transition-colors"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--muted)] resize-none focus:outline-none focus:border-[var(--accent)] transition-colors"
             />
             {msg && (
                 <p className={`text-xs ${msg.type === "error" ? "text-[#ffdad6]" : "text-[#add461]"}`}>
@@ -128,12 +128,12 @@ function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
     const isDelivered = order.status === "delivered";
 
     if (!items || items.length === 0) {
-        return <p className="text-sm text-[#9a8c9b] px-5 py-4 italic">No item details available.</p>;
+        return <p className="text-sm text-[var(--muted)] px-5 py-4 italic">No item details available.</p>;
     }
 
     return (
         <div className="w-full text-sm">
-            <div className="grid grid-cols-4 text-[#9a8c9b] text-[10px] uppercase tracking-widest px-5 py-2.5 font-semibold border-b border-[#342720]">
+            <div className="grid grid-cols-4 text-[var(--muted)] text-[10px] uppercase tracking-widest px-5 py-2.5 font-semibold border-b border-[var(--border)]">
                 <span>Product</span>
                 <span className="text-center">Qty</span>
                 <span className="text-right">Unit Price</span>
@@ -143,17 +143,17 @@ function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
             {items.map((item) => {
                 const product = productMap[item.product_id];
                 return (
-                    <div key={item.id} className="border-t border-[#342720] px-5 py-3 flex flex-col gap-2">
+                    <div key={item.id} className="border-t border-[var(--border)] px-5 py-3 flex flex-col gap-2">
                         <div className="grid grid-cols-4 items-center">
-                            <span className="text-[#f5ded3] font-medium">
+                            <span className="text-[var(--text)] font-medium">
                                 {product
-                                    ? <Link to={`/products/${item.product_id}`} className="hover:text-[#e7b4ff] transition-colors">{product.name}</Link>
-                                    : <span className="text-[#9a8c9b] italic text-xs">{item.product_id}</span>
+                                    ? <Link to={`/products/${item.product_id}`} className="hover:text-[var(--accent)] transition-colors">{product.name}</Link>
+                                    : <span className="text-[var(--muted)] italic text-xs">{item.product_id}</span>
                                 }
                             </span>
-                            <span className="text-[#9a8c9b] text-center">{item.quantity}</span>
-                            <span className="text-[#9a8c9b] text-right">${item.price.toFixed(2)}</span>
-                            <span className="text-[#e7b4ff] font-semibold text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                            <span className="text-[var(--muted)] text-center">{item.quantity}</span>
+                            <span className="text-[var(--muted)] text-right">${item.price.toFixed(2)}</span>
+                            <span className="text-[var(--accent)] font-semibold text-right">${(item.price * item.quantity).toFixed(2)}</span>
                         </div>
 
                         {isDelivered && (
@@ -179,25 +179,25 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
     });
 
     return (
-        <div className={`bg-[#251912] border rounded-lg overflow-hidden shadow-[0_0_20px_rgba(138,71,175,0.06)] ${
-            isCurrent ? "border-[#8a47af]/40" : "border-[#342720]"
+        <div className={`bg-[var(--surface)] border rounded-lg overflow-hidden shadow-[0_0_20px_rgba(138,71,175,0.06)] ${
+            isCurrent ? "border-[var(--accent-dim)]/40" : "border-[var(--border)]"
         }`}>
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
                 <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
+                    <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-widest">
                         Order #{order.delivery_id}
                     </span>
-                    <span className="text-sm text-[#9a8c9b]">{date}</span>
+                    <span className="text-sm text-[var(--muted)]">{date}</span>
                 </div>
                 <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                     <StatusBadge status={order.status} />
-                    <span className="text-base font-bold text-[#e7b4ff]">
+                    <span className="text-base font-bold text-[var(--accent)]">
                         ${order.total_price.toFixed(2)}
                     </span>
                     <button
-                        className="text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors shrink-0 underline underline-offset-2"
+                        className="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors shrink-0 underline underline-offset-2"
                         onClick={() => setExpanded((e) => !e)}
                     >
                         {expanded ? "Hide items" : "View items"}
@@ -207,8 +207,8 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
 
             {/* Status tracker */}
             {isCurrent && STATUS_STEPS.includes(order.status) && (
-                <div className="px-5 pb-2 border-t border-[#342720] pt-3">
-                    <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
+                <div className="px-5 pb-2 border-t border-[var(--border)] pt-3">
+                    <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-widest">
                         Delivery progress
                     </span>
                     <StatusTracker status={order.status} />
@@ -216,19 +216,19 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
             )}
 
             {/* Delivery address */}
-            <div className="px-5 pb-3 border-t border-[#342720] pt-3">
-                <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
+            <div className="px-5 pb-3 border-t border-[var(--border)] pt-3">
+                <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-widest">
                     Delivery address
                 </span>
-                <p className="text-sm text-[#f5ded3] mt-1">{order.delivery_address}</p>
+                <p className="text-sm text-[var(--text)] mt-1">{order.delivery_address}</p>
             </div>
 
             {/* Refund hint */}
             {order.status === "delivered" && !expanded && (
                 <div className="px-5 pb-3">
-                    <p className="text-xs text-[#9a8c9b]/60">
+                    <p className="text-xs text-[var(--muted)]/60">
                         Need to return an item?{" "}
-                        <button onClick={() => setExpanded(true)} className="text-[#e7b4ff] hover:underline">
+                        <button onClick={() => setExpanded(true)} className="text-[var(--accent)] hover:underline">
                             View items
                         </button>{" "}
                         to request a refund.
@@ -238,7 +238,7 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
 
             {/* Expandable items */}
             {expanded && (
-                <div className="border-t border-[#342720]">
+                <div className="border-t border-[var(--border)]">
                     <ItemsTable
                         order={order}
                         productMap={productMap}
@@ -255,16 +255,16 @@ function Section({ title, count, children, emptyIcon, emptyTitle, emptyText }) {
     return (
         <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-serif text-[#f5ded3]">{title}</h2>
+                <h2 className="text-xl font-serif text-[var(--text)]">{title}</h2>
                 {count > 0 && (
-                    <span className="text-sm text-[#9a8c9b]">{count} order{count !== 1 ? "s" : ""}</span>
+                    <span className="text-sm text-[var(--muted)]">{count} order{count !== 1 ? "s" : ""}</span>
                 )}
             </div>
             {count === 0 ? (
-                <div className="bg-[#251912] border border-[#342720] rounded-lg px-6 py-10 text-center">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-6 py-10 text-center">
                     <p className="text-3xl mb-2">{emptyIcon}</p>
-                    <p className="text-[#f5ded3] font-medium">{emptyTitle}</p>
-                    <p className="text-sm text-[#9a8c9b] mt-1">{emptyText}</p>
+                    <p className="text-[var(--text)] font-medium">{emptyTitle}</p>
+                    <p className="text-sm text-[var(--muted)] mt-1">{emptyText}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">{children}</div>
@@ -328,8 +328,8 @@ export default function MyOrders() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center">
-                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Summoning your orders…</p>
+            <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+                <p className="text-[var(--muted)] tracking-widest animate-pulse">Summoning your orders…</p>
             </div>
         );
     }
@@ -338,17 +338,17 @@ export default function MyOrders() {
     const previousOrders = orders.filter((o) => o.completed);
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
             <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-2">
 
                 {/* Breadcrumb */}
-                <div className="text-sm text-[#9a8c9b] flex gap-2 items-center mb-4">
-                    <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                    <span className="text-[#342720]">/</span>
-                    <span className="text-[#f5ded3] font-medium">My Orders</span>
+                <div className="text-sm text-[var(--muted)] flex gap-2 items-center mb-4">
+                    <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                    <span className="text-[var(--border)]">/</span>
+                    <span className="text-[var(--text)] font-medium">My Orders</span>
                 </div>
 
-                <h1 className="text-4xl font-serif text-[#f5ded3] mb-4">My Orders</h1>
+                <h1 className="text-4xl font-serif text-[var(--text)] mb-4">My Orders</h1>
 
                 {error && (
                     <div className="bg-[#93000a]/20 border border-[#93000a]/50 text-[#ffdad6] text-sm font-medium rounded-lg px-4 py-3 mb-4">
@@ -400,7 +400,7 @@ export default function MyOrders() {
 
                 <Link
                     to="/"
-                    className="text-center text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors mt-2"
+                    className="text-center text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors mt-2"
                 >
                     ← Return to the Vault
                 </Link>

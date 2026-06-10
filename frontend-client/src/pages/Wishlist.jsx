@@ -5,7 +5,7 @@ export default function Wishlist() {
     const API_URL  = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
 
-    const { refreshCartCount } = useOutletContext() || {};
+    const { refreshCartCount, refreshWishlistCount } = useOutletContext() || {};
 
     const [wishlist, setWishlist]         = useState([]);
     const [loading, setLoading]           = useState(true);
@@ -61,6 +61,7 @@ export default function Wishlist() {
             });
             if (res.ok) {
                 setWishlist((prev) => prev.filter((i) => getProductId(i) !== productId));
+                if (refreshWishlistCount) refreshWishlistCount();
             }
         } catch (err) {
             console.error(err);
@@ -99,22 +100,22 @@ export default function Wishlist() {
     // ── Not logged in ─────────────────────────────────────────────────────────
     if (!isLoggedIn) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex flex-col items-center justify-center gap-6 px-4">
+            <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-6 px-4">
                 <div className="text-6xl">🔮</div>
-                <h2 className="text-2xl font-serif text-[#f5ded3]">Your Wishlist Awaits</h2>
-                <p className="text-[#9a8c9b] text-sm text-center max-w-xs">
+                <h2 className="text-2xl font-serif text-[var(--text)]">Your Wishlist Awaits</h2>
+                <p className="text-[var(--muted)] text-sm text-center max-w-xs">
                     Sign in to save artifacts to your wishlist and revisit them anytime.
                 </p>
                 <div className="flex gap-3">
                     <Link
                         to="/login"
-                        className="px-6 py-2 rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] font-semibold hover:brightness-110 transition"
+                        className="px-6 py-2 rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] font-semibold hover:brightness-110 transition"
                     >
                         Log In
                     </Link>
                     <Link
                         to="/"
-                        className="px-6 py-2 rounded border border-[#342720] text-[#9a8c9b] hover:border-[#8a47af] hover:text-[#e7b4ff] transition"
+                        className="px-6 py-2 rounded border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent-dim)] hover:text-[var(--accent)] transition"
                     >
                         Browse the Vault
                     </Link>
@@ -126,8 +127,8 @@ export default function Wishlist() {
     // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center">
-                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Gathering your artifacts…</p>
+            <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+                <p className="text-[var(--muted)] tracking-widest animate-pulse">Gathering your artifacts…</p>
             </div>
         );
     }
@@ -135,21 +136,21 @@ export default function Wishlist() {
     // ── Empty ─────────────────────────────────────────────────────────────────
     if (wishlist.length === 0) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
-                <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[#9a8c9b] flex gap-2 items-center">
-                    <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                    <span className="text-[#342720]">/</span>
-                    <span className="text-[#f5ded3] font-medium">Wishlist</span>
+            <div className="min-h-screen bg-[var(--bg)] flex flex-col">
+                <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[var(--muted)] flex gap-2 items-center">
+                    <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                    <span className="text-[var(--border)]">/</span>
+                    <span className="text-[var(--text)] font-medium">Wishlist</span>
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
                     <div className="text-6xl opacity-30">✦</div>
-                    <h2 className="text-2xl font-serif text-[#f5ded3]">Your wishlist is empty</h2>
-                    <p className="text-[#9a8c9b] text-sm text-center max-w-xs">
+                    <h2 className="text-2xl font-serif text-[var(--text)]">Your wishlist is empty</h2>
+                    <p className="text-[var(--muted)] text-sm text-center max-w-xs">
                         Wander the vault and save the artifacts that call to you.
                     </p>
                     <Link
                         to="/"
-                        className="px-6 py-2 rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] font-semibold hover:brightness-110 transition"
+                        className="px-6 py-2 rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] font-semibold hover:brightness-110 transition"
                     >
                         Browse the Vault
                     </Link>
@@ -160,21 +161,21 @@ export default function Wishlist() {
 
     // ── Main ──────────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
 
             {/* Breadcrumb */}
-            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[#9a8c9b] flex gap-2 items-center">
-                <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                <span className="text-[#342720]">/</span>
-                <span className="text-[#f5ded3] font-medium">Wishlist</span>
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-5 text-sm text-[var(--muted)] flex gap-2 items-center">
+                <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                <span className="text-[var(--border)]">/</span>
+                <span className="text-[var(--text)] font-medium">Wishlist</span>
             </div>
 
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">
 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-4xl font-serif text-[#f5ded3]">Your Wishlist</h2>
-                    <span className="text-sm text-[#9a8c9b]">
+                    <h2 className="text-4xl font-serif text-[var(--text)]">Your Wishlist</h2>
+                    <span className="text-sm text-[var(--muted)]">
                         {wishlist.length} {wishlist.length === 1 ? "artifact" : "artifacts"}
                     </span>
                 </div>
@@ -197,16 +198,16 @@ export default function Wishlist() {
                         return (
                             <div
                                 key={productId}
-                                className="group relative overflow-hidden bg-[#251912] border border-[#342720] hover:border-[#8a47af] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg transition-all duration-300 flex flex-col"
+                                className="group relative overflow-hidden bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent-dim)] hover:shadow-[0_0_20px_rgba(138,71,175,0.15)] rounded-lg transition-all duration-300 flex flex-col"
                             >
                                 {/* Hover glow */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#e7b4ff]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                                 {/* Remove X button */}
                                 <button
                                     onClick={() => removeFromWishlist(item)}
                                     disabled={isRemoving}
-                                    className="absolute top-3 right-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-[#1a0f0a]/80 border border-[#342720] text-[#9a8c9b] hover:border-[#93000a] hover:text-[#ffdad6] transition-all disabled:opacity-40"
+                                    className="absolute top-3 right-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-[var(--bg)]/80 border border-[var(--border)] text-[var(--muted)] hover:border-[#93000a] hover:text-[#ffdad6] transition-all disabled:opacity-40"
                                     title="Remove from wishlist"
                                 >
                                     {isRemoving
@@ -218,7 +219,7 @@ export default function Wishlist() {
                                 {/* Image */}
                                 <div
                                     onClick={() => productId && navigate(`/products/${productId}`)}
-                                    className="relative z-10 aspect-[4/5] overflow-hidden border-b border-[#342720]/50 cursor-pointer"
+                                    className="relative z-10 aspect-[4/5] overflow-hidden border-b border-[var(--border)]/50 cursor-pointer"
                                 >
                                     <img
                                         src={item.image_url}
@@ -234,7 +235,7 @@ export default function Wishlist() {
 
                                     {/* Discount badge */}
                                     {discountedPrice && (
-                                        <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#e7b4ff] text-[#300049] shadow-sm">
+                                        <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[var(--btn-from)] text-[var(--on-accent)] shadow-sm">
                                             -{item.discount}%
                                         </div>
                                     )}
@@ -248,13 +249,13 @@ export default function Wishlist() {
                                     <span className="text-[10px] uppercase tracking-widest text-[#add461]">
                                         {item.category || "Artifact"}
                                     </span>
-                                    <h3 className="text-lg font-serif text-[#f5ded3] line-clamp-2">
+                                    <h3 className="text-lg font-serif text-[var(--text)] line-clamp-2">
                                         {item.name}
                                     </h3>
 
                                     {/* Rating — only render if data exists */}
                                     {rating != null && !isNaN(rating) ? (
-                                        <div className="text-sm text-[#9a8c9b]">
+                                        <div className="text-sm text-[var(--muted)]">
                                             <span className="text-[#add461]">⭐ {rating.toFixed(1)}</span>
                                             {reviewCount != null && (
                                                 <span> ({reviewCount} reviews)</span>
@@ -265,11 +266,11 @@ export default function Wishlist() {
                                     <div className="mt-1 mb-3">
                                         {discountedPrice ? (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[#e7b4ff] font-bold">${discountedPrice.toFixed(2)}</span>
-                                                <span className="text-sm text-[#9a8c9b] line-through">${Number(item.price).toFixed(2)}</span>
+                                                <span className="text-[var(--accent)] font-bold">${discountedPrice.toFixed(2)}</span>
+                                                <span className="text-sm text-[var(--muted)] line-through">${Number(item.price).toFixed(2)}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-[#e7b4ff] font-bold">${Number(item.price).toFixed(2)}</span>
+                                            <span className="text-[var(--accent)] font-bold">${Number(item.price).toFixed(2)}</span>
                                         )}
                                     </div>
                                 </div>
@@ -281,12 +282,12 @@ export default function Wishlist() {
                                         disabled={outOfStock}
                                         className={`w-full py-2 rounded font-semibold active:scale-95 transition-all duration-150 shadow-md ${
                                             outOfStock
-                                                ? "bg-[#342720] text-[#9a8c9b] cursor-not-allowed"
+                                                ? "bg-[var(--surface-alt)] text-[var(--muted)] cursor-not-allowed"
                                                 : feedback === "added"
                                                     ? "bg-[#add461] text-[#131f00]"
                                                     : feedback === "maxed"
                                                         ? "bg-[#93000a] text-[#ffdad6]"
-                                                        : "bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110"
+                                                        : "bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110"
                                         }`}
                                     >
                                         {outOfStock
@@ -301,7 +302,7 @@ export default function Wishlist() {
                                     <button
                                         onClick={() => removeFromWishlist(item)}
                                         disabled={isRemoving}
-                                        className="w-full py-2 rounded text-sm text-[#9a8c9b] border border-[#342720] hover:border-[#93000a] hover:text-[#ffdad6] transition-all disabled:opacity-40"
+                                        className="w-full py-2 rounded text-sm text-[var(--muted)] border border-[var(--border)] hover:border-[#93000a] hover:text-[#ffdad6] transition-all disabled:opacity-40"
                                     >
                                         {isRemoving ? "Removing…" : "Remove from Wishlist"}
                                     </button>

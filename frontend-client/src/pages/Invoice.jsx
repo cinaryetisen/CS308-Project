@@ -70,19 +70,19 @@ export default function Invoice() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center">
-                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Summoning invoice…</p>
+            <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+                <p className="text-[var(--muted)] tracking-widest animate-pulse">Summoning invoice…</p>
             </div>
         );
     }
 
     if (error || !order) {
         return (
-            <div className="min-h-screen bg-[#1a0f0a] flex flex-col items-center justify-center gap-6">
+            <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-6">
                 <p className="text-[#ffdad6] text-lg">{error || "Invoice not found."}</p>
                 <button
                     onClick={() => navigate("/")}
-                    className="px-6 py-2 rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] font-semibold hover:brightness-110 transition"
+                    className="px-6 py-2 rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] font-semibold hover:brightness-110 transition"
                 >
                     ← Return to the Vault
                 </button>
@@ -95,19 +95,19 @@ export default function Invoice() {
         year: "numeric", month: "long", day: "numeric",
     });
 
-    const labelClass = "text-[10px] uppercase tracking-widest font-semibold text-[#9a8c9b]";
+    const labelClass = "text-[10px] uppercase tracking-widest font-semibold text-[var(--muted)]";
 
     return (
-        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg)] flex flex-col">
             <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-5">
 
                 {/* Breadcrumb */}
-                <div className="text-sm text-[#9a8c9b] flex gap-2 items-center">
-                    <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
-                    <span className="text-[#342720]">/</span>
-                    <Link to="/orders" className="hover:text-[#e7b4ff] transition-colors">My Orders</Link>
-                    <span className="text-[#342720]">/</span>
-                    <span className="text-[#f5ded3] font-medium">Invoice</span>
+                <div className="text-sm text-[var(--muted)] flex gap-2 items-center">
+                    <Link to="/" className="hover:text-[var(--accent)] transition-colors">The Vault</Link>
+                    <span className="text-[var(--border)]">/</span>
+                    <Link to="/orders" className="hover:text-[var(--accent)] transition-colors">My Orders</Link>
+                    <span className="text-[var(--border)]">/</span>
+                    <span className="text-[var(--text)] font-medium">Invoice</span>
                 </div>
 
                 {/* Success banner */}
@@ -124,13 +124,13 @@ export default function Invoice() {
                 </div>
 
                 {/* Invoice card */}
-                <div className="bg-[#251912] border border-[#342720] rounded-lg overflow-hidden shadow-[0_0_40px_rgba(138,71,175,0.08)]">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden shadow-[0_0_40px_rgba(138,71,175,0.08)]">
 
                     {/* Invoice header */}
-                    <div className="px-6 py-5 border-b border-[#342720] flex items-center justify-between">
+                    <div className="px-6 py-5 border-b border-[var(--border)] flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-serif text-[#f5ded3]">Invoice</h1>
-                            <p className="text-xs text-[#9a8c9b] mt-0.5">Order #{order.delivery_id} · {date}</p>
+                            <h1 className="text-2xl font-serif text-[var(--text)]">Invoice</h1>
+                            <p className="text-xs text-[var(--muted)] mt-0.5">Order #{order.delivery_id} · {date}</p>
                         </div>
                         <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest bg-[#add461]/10 text-[#add461] border border-[#add461]/30">
                             Confirmed
@@ -138,31 +138,31 @@ export default function Invoice() {
                     </div>
 
                     {/* Billed to / Ship to */}
-                    <div className="grid grid-cols-2 gap-4 px-6 py-5 border-b border-[#342720]">
+                    <div className="grid grid-cols-2 gap-4 px-6 py-5 border-b border-[var(--border)]">
                         <div>
                             <p className={`${labelClass} mb-1`}>Billed to</p>
                             {user ? (
                                 <>
-                                    <p className="text-sm font-medium text-[#f5ded3]">{user.name || "—"}</p>
-                                    <p className="text-xs text-[#9a8c9b]">{user.email}</p>
+                                    <p className="text-sm font-medium text-[var(--text)]">{user.name || "—"}</p>
+                                    <p className="text-xs text-[var(--muted)]">{user.email}</p>
                                     {user.tax_id && (
-                                        <p className="text-xs text-[#9a8c9b]">Tax ID: {user.tax_id}</p>
+                                        <p className="text-xs text-[var(--muted)]">Tax ID: {user.tax_id}</p>
                                     )}
                                 </>
                             ) : (
-                                <p className="text-sm text-[#9a8c9b] italic animate-pulse">Loading…</p>
+                                <p className="text-sm text-[var(--muted)] italic animate-pulse">Loading…</p>
                             )}
                         </div>
                         <div>
                             <p className={`${labelClass} mb-1`}>Ship to</p>
-                            <p className="text-sm text-[#f5ded3] whitespace-pre-line">{order.delivery_address}</p>
+                            <p className="text-sm text-[var(--text)] whitespace-pre-line">{order.delivery_address}</p>
                         </div>
                     </div>
 
                     {/* Items table */}
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-[#9a8c9b] text-[10px] uppercase tracking-widest border-b border-[#342720]">
+                            <tr className="text-[var(--muted)] text-[10px] uppercase tracking-widest border-b border-[var(--border)]">
                                 <th className="text-left px-6 py-3 font-semibold">Product</th>
                                 <th className="text-center px-4 py-3 font-semibold">Qty</th>
                                 <th className="text-right px-4 py-3 font-semibold">Unit Price</th>
@@ -173,22 +173,22 @@ export default function Invoice() {
                             {items.map((item) => {
                                 const product = productMap[item.product_id];
                                 return (
-                                    <tr key={item.id || item.product_id} className="border-b border-[#342720] last:border-0">
+                                    <tr key={item.id || item.product_id} className="border-b border-[var(--border)] last:border-0">
                                         <td className="px-6 py-3">
                                             {product ? (
                                                 <Link
                                                     to={`/products/${item.product_id}`}
-                                                    className="text-[#f5ded3] font-medium hover:text-[#e7b4ff] transition-colors"
+                                                    className="text-[var(--text)] font-medium hover:text-[var(--accent)] transition-colors"
                                                 >
                                                     {product.name}
                                                 </Link>
                                             ) : (
-                                                <span className="text-[#9a8c9b] italic text-xs">{item.product_id}</span>
+                                                <span className="text-[var(--muted)] italic text-xs">{item.product_id}</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-[#9a8c9b] text-center">{item.quantity}</td>
-                                        <td className="px-4 py-3 text-[#9a8c9b] text-right">${item.price.toFixed(2)}</td>
-                                        <td className="px-6 py-3 text-[#e7b4ff] font-semibold text-right">
+                                        <td className="px-4 py-3 text-[var(--muted)] text-center">{item.quantity}</td>
+                                        <td className="px-4 py-3 text-[var(--muted)] text-right">${item.price.toFixed(2)}</td>
+                                        <td className="px-6 py-3 text-[var(--accent)] font-semibold text-right">
                                             ${(item.price * item.quantity).toFixed(2)}
                                         </td>
                                     </tr>
@@ -196,11 +196,11 @@ export default function Invoice() {
                             })}
                         </tbody>
                         <tfoot>
-                            <tr className="border-t-2 border-[#342720]">
-                                <td colSpan="3" className="px-6 py-4 text-right text-sm font-semibold text-[#9a8c9b]">
+                            <tr className="border-t-2 border-[var(--border)]">
+                                <td colSpan="3" className="px-6 py-4 text-right text-sm font-semibold text-[var(--muted)]">
                                     Total
                                 </td>
-                                <td className="px-6 py-4 text-right text-lg font-bold text-[#e7b4ff]">
+                                <td className="px-6 py-4 text-right text-lg font-bold text-[var(--accent)]">
                                     ${order.total_price.toFixed(2)}
                                 </td>
                             </tr>
@@ -208,17 +208,17 @@ export default function Invoice() {
                     </table>
 
                     {/* Actions */}
-                    <div className="px-6 py-5 border-t border-[#342720] flex justify-end gap-3">
+                    <div className="px-6 py-5 border-t border-[var(--border)] flex justify-end gap-3">
                         <button
                             onClick={() => navigate("/")}
-                            className="px-5 py-2 text-sm font-medium rounded border border-[#342720] text-[#9a8c9b] hover:border-[#8a47af] hover:text-[#e7b4ff] transition-all"
+                            className="px-5 py-2 text-sm font-medium rounded border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent-dim)] hover:text-[var(--accent)] transition-all"
                         >
                             Continue Shopping
                         </button>
                         <button
                             onClick={handleDownloadPdf}
                             disabled={downloading}
-                            className="px-5 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[#e7b4ff] to-[#8a47af] text-[#300049] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-5 py-2 text-sm font-semibold rounded bg-gradient-to-r from-[var(--btn-from)] to-[var(--btn-to)] text-[var(--on-accent)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {downloading ? "Opening…" : "Download PDF"}
                         </button>
@@ -228,7 +228,7 @@ export default function Invoice() {
 
                 <Link
                     to="/orders"
-                    className="text-center text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors"
+                    className="text-center text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                 >
                     ← Back to My Orders
                 </Link>
