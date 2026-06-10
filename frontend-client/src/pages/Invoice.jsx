@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { apiRequest } from "../api/client";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -18,17 +19,12 @@ export default function Invoice() {
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) { navigate("/login"); return; }
-        fetch(`${API_URL}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then((r) => r.ok ? r.json() : Promise.reject())
-            .then(setUser)
-            .catch(() => {});
+        apiRequest("/api/users/me").then(setUser).catch(() => {});
     }, [navigate]);
 
     useEffect(() => {
         if (order) return;
-        const token = localStorage.getItem("token");
-        fetch(`${API_URL}/api/orders/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed to load order")))
+        apiRequest("/api/orders/me")
             .then((orders) => {
                 const found = orders.find((o) => String(o.delivery_id) === String(orderId));
                 if (!found) throw new Error("Order not found");
@@ -47,9 +43,7 @@ export default function Invoice() {
         Promise.all(
             uniqueIds.map(async (pid) => {
                 try {
-                    const r = await fetch(`${API_URL}/api/products/${pid}`);
-                    if (!r.ok) return [pid, null];
-                    const p = await r.json();
+                    const p = await apiRequest(`/api/products/${pid}`, {}, false);
                     return [pid, p];
                 } catch { return [pid, null]; }
             })

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { useNavigate } from "react-router-dom";
+import { apiRequest } from "../api/client";
 
 function getInitials(name) {
     if (!name) return "?";
@@ -27,12 +26,7 @@ export default function UserProfile() {
     async function fetchProfile() {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/users/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error("Failed to load profile");
-            const data = await res.json();
+            const data = await apiRequest("/api/users/me");
             setUser(data);
             setForm({ name: data.name || "", tax_id: data.tax_id || "", home_address: data.home_address || "" });
         } catch (err) {
@@ -46,17 +40,14 @@ export default function UserProfile() {
         setSaving(true);
         setStatus(null);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/users/me`, {
+            const updated = await apiRequest("/api/users/me", {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ name: form.name, tax_id: form.tax_id, home_address: form.home_address }),
+                body: JSON.stringify({
+                    name: form.name,
+                    tax_id: form.tax_id,
+                    home_address: form.home_address,
+                }),
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Update failed");
-            }
-            const updated = await res.json();
             setUser(updated);
             setForm({ name: updated.name || "", tax_id: updated.tax_id || "", home_address: updated.home_address || "" });
             setStatus({ type: "success", message: "Profile updated successfully." });

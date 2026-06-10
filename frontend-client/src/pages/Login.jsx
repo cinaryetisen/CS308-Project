@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { apiRequest } from '../api/client';
 
 export default function Login() {
     const navigate = useNavigate();
-    const API_URL  = import.meta.env.VITE_API_URL;
 
     const [formData, setFormData] = useState({ email: "", password: "" });
     const [loading, setLoading]   = useState(false);
@@ -21,19 +21,10 @@ export default function Login() {
         setError("");
 
         try {
-            const response = await fetch(`${API_URL}/api/login`, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ email: formData.email, password: formData.password })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || "Login failed. Please check your credentials.");
-                setLoading(false);
-                return;
-            }
+            const data = await apiRequest("/api/login", {
+                method: "POST",
+                body:   JSON.stringify({ email: formData.email, password: formData.password })
+            }, false);
 
             if (data.token) localStorage.setItem("token", data.token);
             if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
@@ -41,13 +32,9 @@ export default function Login() {
             const guestCart = JSON.parse(localStorage.getItem("cart") || "[]");
             if (guestCart.length > 0) {
                 try {
-                    await fetch(`${API_URL}/api/cart/merge`, {
-                        method:  "POST",
-                        headers: {
-                            "Content-Type":  "application/json",
-                            "Authorization": `Bearer ${data.token}`
-                        },
-                        body: JSON.stringify(
+                    await apiRequest("/api/cart/merge", {
+                        method: "POST",
+                        body:   JSON.stringify(
                             guestCart.map((item) => ({ product_id: item.id, quantity: item.quantity }))
                         )
                     });
@@ -74,7 +61,7 @@ export default function Login() {
 
         } catch (err) {
             console.error(err);
-            setError("Server error. Please try again later.");
+            setError(err.message || "Server error. Please try again later.");
         } finally {
             setLoading(false);
         }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { apiRequest } from "../api/client";
 
 const STATUS_STYLES = {
     processing:   "bg-[#3a2800]/60 text-[#e7c46a] border border-[#5a4200]/50",
@@ -85,16 +84,10 @@ function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmit
         setSubmitting(true);
         setMsg(null);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/orders/${orderId}/refund`, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                body:    JSON.stringify({ order_item_id: item.id, reason }),
+            await apiRequest(`/api/orders/${orderId}/refund`, {
+                method: "POST",
+                body: JSON.stringify({ order_item_id: item.id, reason }),
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Failed to submit refund request.");
-            }
             setMsg({ type: "success", text: "Refund request submitted!" });
             setReason("");
             onRefundSubmitted();
@@ -289,12 +282,7 @@ export default function MyOrders() {
 
     async function fetchRefunds() {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_BASE}/api/orders/me/refunds`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await apiRequest("/api/orders/me/refunds");
             setRefunds(data || []);
         } catch { /* silently fail */ }
     }
@@ -302,13 +290,7 @@ export default function MyOrders() {
     useEffect(() => {
         async function fetchAll() {
             try {
-                const token = localStorage.getItem("token");
-
-                const res = await fetch(`${API_BASE}/api/orders/me`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok) throw new Error("Failed to fetch orders");
-                const data = await res.json();
+                const data = await apiRequest("/api/orders/me");
                 data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 setOrders(data);
 
@@ -324,9 +306,7 @@ export default function MyOrders() {
                     const results = await Promise.all(
                         uniqueIds.map(async (pid) => {
                             try {
-                                const r = await fetch(`${API_BASE}/api/products/${pid}`);
-                                if (!r.ok) return [pid, null];
-                                const p = await r.json();
+                                const p = await apiRequest(`/api/products/${pid}`, {}, false);
                                 return [pid, p];
                             } catch {
                                 return [pid, null];

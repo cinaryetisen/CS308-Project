@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"medieval-store/config"
+	"medieval-store/errs"
 	"medieval-store/models"
 
 	"github.com/gin-gonic/gin"
@@ -15,14 +16,12 @@ import (
 
 // B1: Create a new product (Product Manager Only)
 func CreateProduct(c *gin.Context) {
-	// 1. Strict Input DTO: Blocks users from injecting fake ratings or discounts!
 	var input struct {
 		Name         string   `json:"name" binding:"required"`
 		Model        string   `json:"model" binding:"required"`
 		SerialNumber string   `json:"serial_number" binding:"required"`
 		Description  string   `json:"description" binding:"required"`
-		Quantity     int      `json:"quantity" binding:"gte=0"`      // Must be 0 or greater
-		Price        float64  `json:"price" binding:"required,gt=0"` // Must be greater than 0
+		Quantity     int      `json:"quantity" binding:"gte=0"`
 		Category     string   `json:"category" binding:"required"`
 		Distributor  string   `json:"distributor" binding:"required"`
 		Warranty     string   `json:"warranty" binding:"required"`
@@ -31,7 +30,7 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product data: " + err.Error()})
+		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
 		return
 	}
 
@@ -43,16 +42,16 @@ func CreateProduct(c *gin.Context) {
 		SerialNumber: input.SerialNumber,
 		Description:  input.Description,
 		Quantity:     input.Quantity,
-		Price:        input.Price,
-		Cost:         input.Price * 0.6, // Auto-calculate cost for the profit algorithm!
-		Discount:     0.0,               // Force starting discount to 0
+		Price:        99999.99,
+		Cost:         0.0,
+		Discount:     0.0,
 		Category:     input.Category,
 		Distributor:  input.Distributor,
 		Warranty:     input.Warranty,
 		ImageURL:     input.ImageURL,
 		Tags:         input.Tags,
-		Rating:       0.0, // Force rating to 0
-		ReviewCount:  0,   // Force reviews to 0
+		Rating:       0.0,
+		ReviewCount:  0,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -63,11 +62,14 @@ func CreateProduct(c *gin.Context) {
 
 	_, err := collection.InsertOne(ctx, product)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Product created successfully", "product": product})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Product created successfully! Price temporarily set to 99,999.99 until approved by Sales.",
+		"product": product,
+	})
 }
 
 // B2: Update non-price fields (Product Manager Only)
@@ -75,7 +77,7 @@ func UpdateProduct(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID format"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -93,7 +95,7 @@ func UpdateProduct(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid update data"})
+		errs.Abort(c, errs.InvalidJSON)
 		return
 	}
 
@@ -120,8 +122,12 @@ func UpdateProduct(c *gin.Context) {
 	filter := bson.M{"_id": objectID, "deleted_at": bson.M{"$exists": false}}
 	result, err := collection.UpdateOne(ctx, filter, updateData)
 
-	if err != nil || result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found or has been deleted"})
+	if err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
+	if result.MatchedCount == 0 {
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -133,7 +139,7 @@ func DeleteProduct(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -145,8 +151,12 @@ func DeleteProduct(c *gin.Context) {
 	updateData := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
 	result, err := collection.UpdateOne(ctx, bson.M{"_id": objectID}, updateData)
 
-	if err != nil || result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+	if err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
+	if result.MatchedCount == 0 {
+		errs.Abort(c, errs.ProductNotFound)
 		return
 	}
 
@@ -158,7 +168,7 @@ func UpdateStock(c *gin.Context) {
 	idParam := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		errs.Abort(c, errs.ProductInvalidID)
 		return
 	}
 
@@ -168,7 +178,7 @@ func UpdateStock(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Please provide a valid stock delta"})
+		errs.AbortWithDetail(c, errs.InvalidJSON, "please provide a valid stock delta")
 		return
 	}
 
@@ -188,12 +198,12 @@ func UpdateStock(c *gin.Context) {
 	result, err := collection.UpdateOne(ctx, filter, update)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
+		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	if result.MatchedCount == 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Operation failed: Product not found, deleted, or insufficient stock"})
+		errs.Abort(c, errs.ProductOutOfStock)
 		return
 	}
 
