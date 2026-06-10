@@ -3,26 +3,26 @@ import { useNavigate, Link } from "react-router-dom";
 import { apiRequest } from "../api/client";
 
 const STATUS_STYLES = {
-    processing:   "bg-yellow-100 text-yellow-700",
-    "in-transit": "bg-blue-100 text-blue-700",
-    delivered:    "bg-green-100 text-green-700",
-    cancelled:    "bg-red-100 text-red-700",
-    returned:     "bg-gray-100 text-gray-600",
+    processing:   "bg-[#3a2800]/60 text-[#e7c46a] border border-[#5a4200]/50",
+    "in-transit": "bg-[#1a1f3a]/60 text-[#b4d4ff] border border-[#2a3560]/50",
+    delivered:    "bg-[#add461]/10 text-[#add461] border border-[#add461]/30",
+    cancelled:    "bg-[#93000a]/20 text-[#ffdad6] border border-[#93000a]/40",
+    returned:     "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]",
 };
 
 const REFUND_STATUS_STYLES = {
-    pending:  "bg-yellow-100 text-yellow-700",
-    approved: "bg-green-100 text-green-700",
-    rejected: "bg-red-100 text-red-700",
+    pending:  "bg-[#3a2800]/60 text-[#e7c46a] border border-[#5a4200]/50",
+    approved: "bg-[#add461]/10 text-[#add461] border border-[#add461]/30",
+    rejected: "bg-[#93000a]/20 text-[#ffdad6] border border-[#93000a]/40",
 };
 
 const STATUS_STEPS = ["processing", "in-transit", "delivered"];
 
 function StatusBadge({ status }) {
-    const style = STATUS_STYLES[status] || "bg-gray-100 text-gray-600";
+    const style = STATUS_STYLES[status] || "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]";
     const label = status.charAt(0).toUpperCase() + status.slice(1);
     return (
-        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${style}`}>
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${style}`}>
             {label}
         </span>
     );
@@ -39,18 +39,18 @@ function StatusTracker({ status }) {
                     <div key={step} className="flex items-center flex-1">
                         <div className="flex flex-col items-center flex-1">
                             <div className={`w-3 h-3 rounded-full border-2 transition-colors ${
-                                isCompleted ? "bg-blue-600 border-blue-600"
-                                    : isActive   ? "bg-white border-blue-600"
-                                        :              "bg-white border-gray-300"
+                                isCompleted ? "bg-[#add461] border-[#add461]"
+                                    : isActive   ? "bg-transparent border-[#e7b4ff]"
+                                        :              "bg-transparent border-[#342720]"
                             }`} />
-                            <span className={`text-xs mt-1 font-medium capitalize ${
-                                isActive ? "text-blue-600" : isCompleted ? "text-gray-500" : "text-gray-300"
+                            <span className={`text-[10px] mt-1 font-semibold capitalize tracking-wide ${
+                                isActive ? "text-[#e7b4ff]" : isCompleted ? "text-[#add461]" : "text-[#342720]"
                             }`}>
                                 {step}
                             </span>
                         </div>
                         {i < STATUS_STEPS.length - 1 && (
-                            <div className={`h-0.5 flex-1 mb-4 ${i < currentIndex ? "bg-blue-600" : "bg-gray-200"}`} />
+                            <div className={`h-px flex-1 mb-4 ${i < currentIndex ? "bg-[#add461]" : "bg-[#342720]"}`} />
                         )}
                     </div>
                 );
@@ -59,21 +59,20 @@ function StatusTracker({ status }) {
     );
 }
 
-// Refund form shown per item in a delivered order
 function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmitted }) {
-    const [reason, setReason]       = useState("");
+    const [reason, setReason]         = useState("");
     const [submitting, setSubmitting] = useState(false);
-    const [msg, setMsg]             = useState(null);
+    const [msg, setMsg]               = useState(null);
 
     const existingRefund = existingRefunds.find((r) => r.order_item_id === item.id);
     const product        = productMap[item.product_id];
 
     if (existingRefund) {
-        const refundStyle = REFUND_STATUS_STYLES[existingRefund.status] || "bg-gray-100 text-gray-600";
+        const refundStyle = REFUND_STATUS_STYLES[existingRefund.status] || "bg-[#342720]/60 text-[#9a8c9b] border border-[#342720]";
         return (
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg border border-gray-100 text-sm">
-                <span className="text-gray-500">Refund requested</span>
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${refundStyle}`}>
+            <div className="flex items-center justify-between px-4 py-2 bg-[#1a0f0a] rounded border border-[#342720] text-sm mt-2">
+                <span className="text-[#9a8c9b] text-xs">Refund requested</span>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${refundStyle}`}>
                     {existingRefund.status.charAt(0).toUpperCase() + existingRefund.status.slice(1)}
                 </span>
             </div>
@@ -106,17 +105,17 @@ function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmit
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={`Reason for returning ${product?.name || "this item"}...`}
                 rows={2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[#1a0f0a] border border-[#342720] rounded px-3 py-2 text-sm text-[#f5ded3] placeholder-[#9a8c9b] resize-none focus:outline-none focus:border-[#e7b4ff] transition-colors"
             />
             {msg && (
-                <p className={`text-xs ${msg.type === "error" ? "text-red-600" : "text-green-600"}`}>
-                    {msg.text}
+                <p className={`text-xs ${msg.type === "error" ? "text-[#ffdad6]" : "text-[#add461]"}`}>
+                    {msg.type === "success" ? "✓ " : ""}{msg.text}
                 </p>
             )}
             <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="self-end text-xs font-semibold px-4 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                className="self-end text-xs font-semibold px-4 py-1.5 rounded border border-[#93000a]/60 text-[#ffdad6] bg-[#93000a]/20 hover:bg-[#93000a]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
             >
                 {submitting ? "Submitting…" : "Request Refund"}
             </button>
@@ -125,17 +124,16 @@ function RefundForm({ orderId, item, productMap, existingRefunds, onRefundSubmit
 }
 
 function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
-    const items = order.items;
+    const items       = order.items;
     const isDelivered = order.status === "delivered";
 
     if (!items || items.length === 0) {
-        return <p className="text-sm text-gray-400 px-5 py-4 italic">No item details available.</p>;
+        return <p className="text-sm text-[#9a8c9b] px-5 py-4 italic">No item details available.</p>;
     }
 
     return (
         <div className="w-full text-sm">
-            {/* Table header */}
-            <div className="grid grid-cols-4 bg-gray-50 text-gray-400 text-xs uppercase tracking-wide px-5 py-2.5 font-semibold">
+            <div className="grid grid-cols-4 text-[#9a8c9b] text-[10px] uppercase tracking-widest px-5 py-2.5 font-semibold border-b border-[#342720]">
                 <span>Product</span>
                 <span className="text-center">Qty</span>
                 <span className="text-right">Unit Price</span>
@@ -145,20 +143,19 @@ function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
             {items.map((item) => {
                 const product = productMap[item.product_id];
                 return (
-                    <div key={item.id} className="border-t border-gray-100 px-5 py-3 flex flex-col gap-2">
+                    <div key={item.id} className="border-t border-[#342720] px-5 py-3 flex flex-col gap-2">
                         <div className="grid grid-cols-4 items-center">
-                            <span className="text-gray-800 font-medium">
+                            <span className="text-[#f5ded3] font-medium">
                                 {product
-                                    ? <Link to={`/products/${item.product_id}`} className="hover:text-blue-600 transition-colors">{product.name}</Link>
-                                    : <span className="text-gray-400 italic text-xs">{item.product_id}</span>
+                                    ? <Link to={`/products/${item.product_id}`} className="hover:text-[#e7b4ff] transition-colors">{product.name}</Link>
+                                    : <span className="text-[#9a8c9b] italic text-xs">{item.product_id}</span>
                                 }
                             </span>
-                            <span className="text-gray-600 text-center">{item.quantity}</span>
-                            <span className="text-gray-600 text-right">${item.price.toFixed(2)}</span>
-                            <span className="text-gray-900 font-semibold text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                            <span className="text-[#9a8c9b] text-center">{item.quantity}</span>
+                            <span className="text-[#9a8c9b] text-right">${item.price.toFixed(2)}</span>
+                            <span className="text-[#e7b4ff] font-semibold text-right">${(item.price * item.quantity).toFixed(2)}</span>
                         </div>
 
-                        {/* Refund form — only for delivered orders */}
                         {isDelivered && (
                             <RefundForm
                                 orderId={order.delivery_id}
@@ -182,23 +179,25 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
     });
 
     return (
-        <div className={`bg-white border rounded-xl overflow-hidden ${isCurrent ? "border-blue-200" : "border-gray-200"}`}>
+        <div className={`bg-[#251912] border rounded-lg overflow-hidden shadow-[0_0_20px_rgba(138,71,175,0.06)] ${
+            isCurrent ? "border-[#8a47af]/40" : "border-[#342720]"
+        }`}>
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
                 <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
                         Order #{order.delivery_id}
                     </span>
-                    <span className="text-sm text-gray-500">{date}</span>
+                    <span className="text-sm text-[#9a8c9b]">{date}</span>
                 </div>
-                <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                     <StatusBadge status={order.status} />
-                    <span className="text-base font-bold text-gray-900">
+                    <span className="text-base font-bold text-[#e7b4ff]">
                         ${order.total_price.toFixed(2)}
                     </span>
                     <button
-                        className="text-sm text-blue-600 hover:underline shrink-0"
+                        className="text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors shrink-0 underline underline-offset-2"
                         onClick={() => setExpanded((e) => !e)}
                     >
                         {expanded ? "Hide items" : "View items"}
@@ -208,8 +207,8 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
 
             {/* Status tracker */}
             {isCurrent && STATUS_STEPS.includes(order.status) && (
-                <div className="px-5 pb-2 border-t border-blue-50 pt-3">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <div className="px-5 pb-2 border-t border-[#342720] pt-3">
+                    <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
                         Delivery progress
                     </span>
                     <StatusTracker status={order.status} />
@@ -217,19 +216,19 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
             )}
 
             {/* Delivery address */}
-            <div className="px-5 pb-3 border-t border-gray-100 pt-3">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <div className="px-5 pb-3 border-t border-[#342720] pt-3">
+                <span className="text-[10px] font-semibold text-[#9a8c9b] uppercase tracking-widest">
                     Delivery address
                 </span>
-                <p className="text-sm text-gray-700 mt-0.5">{order.delivery_address}</p>
+                <p className="text-sm text-[#f5ded3] mt-1">{order.delivery_address}</p>
             </div>
 
-            {/* Refund note for delivered orders */}
+            {/* Refund hint */}
             {order.status === "delivered" && !expanded && (
                 <div className="px-5 pb-3">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[#9a8c9b]/60">
                         Need to return an item?{" "}
-                        <button onClick={() => setExpanded(true)} className="text-blue-600 hover:underline">
+                        <button onClick={() => setExpanded(true)} className="text-[#e7b4ff] hover:underline">
                             View items
                         </button>{" "}
                         to request a refund.
@@ -239,7 +238,7 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
 
             {/* Expandable items */}
             {expanded && (
-                <div className="border-t border-gray-100">
+                <div className="border-t border-[#342720]">
                     <ItemsTable
                         order={order}
                         productMap={productMap}
@@ -256,16 +255,16 @@ function Section({ title, count, children, emptyIcon, emptyTitle, emptyText }) {
     return (
         <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+                <h2 className="text-xl font-serif text-[#f5ded3]">{title}</h2>
                 {count > 0 && (
-                    <span className="text-sm text-gray-400">{count} order{count !== 1 ? "s" : ""}</span>
+                    <span className="text-sm text-[#9a8c9b]">{count} order{count !== 1 ? "s" : ""}</span>
                 )}
             </div>
             {count === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-xl px-6 py-10 text-center">
+                <div className="bg-[#251912] border border-[#342720] rounded-lg px-6 py-10 text-center">
                     <p className="text-3xl mb-2">{emptyIcon}</p>
-                    <p className="text-gray-700 font-semibold">{emptyTitle}</p>
-                    <p className="text-sm text-gray-400 mt-1">{emptyText}</p>
+                    <p className="text-[#f5ded3] font-medium">{emptyTitle}</p>
+                    <p className="text-sm text-[#9a8c9b] mt-1">{emptyText}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">{children}</div>
@@ -275,12 +274,11 @@ function Section({ title, count, children, emptyIcon, emptyTitle, emptyText }) {
 }
 
 export default function MyOrders() {
-    const [orders, setOrders]             = useState([]);
-    const [productMap, setProductMap]     = useState({});
-    const [refunds, setRefunds]           = useState([]);
-    const [loading, setLoading]           = useState(true);
-    const [error, setError]               = useState(null);
-    const navigate = useNavigate();
+    const [orders, setOrders]         = useState([]);
+    const [productMap, setProductMap] = useState({});
+    const [refunds, setRefunds]       = useState([]);
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState(null);
 
     async function fetchRefunds() {
         try {
@@ -330,11 +328,8 @@ export default function MyOrders() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-500">Loading your orders…</p>
-                </div>
+            <div className="min-h-screen bg-[#1a0f0a] flex items-center justify-center">
+                <p className="text-[#9a8c9b] tracking-widest animate-pulse">Summoning your orders…</p>
             </div>
         );
     }
@@ -343,21 +338,21 @@ export default function MyOrders() {
     const previousOrders = orders.filter((o) => o.completed);
 
     return (
-        <div className="min-h-screen bg-gray-100 py-8 px-4">
-            <div className="max-w-2xl mx-auto">
+        <div className="min-h-screen bg-[#1a0f0a] flex flex-col">
+            <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-2">
 
-                <button
-                    className="text-blue-600 text-sm mb-5 hover:underline flex items-center gap-1"
-                    onClick={() => navigate("/")}
-                >
-                    ← Back to products
-                </button>
+                {/* Breadcrumb */}
+                <div className="text-sm text-[#9a8c9b] flex gap-2 items-center mb-4">
+                    <Link to="/" className="hover:text-[#e7b4ff] transition-colors">The Vault</Link>
+                    <span className="text-[#342720]">/</span>
+                    <span className="text-[#f5ded3] font-medium">My Orders</span>
+                </div>
 
-                <h1 className="text-2xl font-bold text-gray-900 mb-6">My Orders</h1>
+                <h1 className="text-4xl font-serif text-[#f5ded3] mb-4">My Orders</h1>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-lg px-4 py-3 mb-4">
-                        {error}
+                    <div className="bg-[#93000a]/20 border border-[#93000a]/50 text-[#ffdad6] text-sm font-medium rounded-lg px-4 py-3 mb-4">
+                        ✕ {error}
                     </div>
                 )}
 
@@ -366,7 +361,7 @@ export default function MyOrders() {
                         <Section
                             title="Current Orders"
                             count={currentOrders.length}
-                            emptyIcon="🚚"
+                            emptyIcon="✦"
                             emptyTitle="No active orders"
                             emptyText="Orders you place will appear here while they're being processed or delivered."
                         >
@@ -385,7 +380,7 @@ export default function MyOrders() {
                         <Section
                             title="Order History"
                             count={previousOrders.length}
-                            emptyIcon="📋"
+                            emptyIcon="✦"
                             emptyTitle="No previous orders"
                             emptyText="Completed and returned orders will appear here."
                         >
@@ -402,7 +397,15 @@ export default function MyOrders() {
                         </Section>
                     </>
                 )}
-            </div>
+
+                <Link
+                    to="/"
+                    className="text-center text-sm text-[#9a8c9b] hover:text-[#e7b4ff] transition-colors mt-2"
+                >
+                    ← Return to the Vault
+                </Link>
+
+            </main>
         </div>
     );
 }
