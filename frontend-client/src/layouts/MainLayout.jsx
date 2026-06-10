@@ -66,14 +66,12 @@ export default function MainLayout() {
             <header className="shrink-0 w-full z-50 bg-[#1c110b] border-b border-[#342720] px-6 py-4 flex justify-between items-center">
 
                 <h2 className="text-xl font-serif text-[#e7b4ff]">
-                    The Vault
+                    <Link to="/" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
+                        The Vault Of Essence
+                    </Link>
+                    
                 </h2>
 
-                <div className="flex gap-4">
-                    <Link to="/" className="px-4 py-2 bg-[#342720] text-[#e7b4ff] rounded-lg hover:bg-[#40322a] transition">
-                        Shop
-                    </Link>
-                </div>
 
                 <div className="flex items-center gap-6">
                     <Link to="/shoppingcart" className="text-2xl hover:scale-110 transition-transform">
