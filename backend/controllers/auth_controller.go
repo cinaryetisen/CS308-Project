@@ -1,15 +1,16 @@
 package controllers
 
 import (
+	"errors"
 	"log"
 	"medieval-store/config"
 	"medieval-store/errs"
 	"medieval-store/models"
 	"medieval-store/security"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type SignupInput struct {
@@ -18,9 +19,6 @@ type SignupInput struct {
 	TaxID       string `json:"tax_id"`
 	HomeAddress string `json:"home_address"`
 	Password    string `json:"password" binding:"required,min=6"`
-	// NOTE: no Role field. Public signup always creates customers — manager
-	// accounts are provisioned by the seeder. A client-supplied role here was
-	// a privilege-escalation hole (anyone could self-register as a manager).
 }
 
 type LoginInput struct {
@@ -32,14 +30,25 @@ func Signup(c *gin.Context) {
 	var input SignupInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Printf("Signup Input JSON parsing failed with error: %s\n", err.Error())
-		//If the error message contains 'Password', we know it's a weak password problem
-		if strings.Contains(err.Error(), "Password") {
-			errs.Abort(c, errs.AuthWeakPassword)
-			return
+		var verrs validator.ValidationErrors
+		if errors.As(err, &verrs) {
+			for _, fe := range verrs {
+				switch fe.Field() {
+				case "Password":
+					// min=6 (too short) or required (missing)
+					errs.Abort(c, errs.AuthWeakPassword)
+					return
+				case "Email":
+					errs.Abort(c, errs.AuthInvalidEmail)
+					return
+				case "Name":
+					errs.AbortWithDetail(c, errs.InvalidJSON, "name is required")
+					return
+				}
+			}
 		}
-
-		//Otherwise, default to invalid email/general bad request
-		errs.Abort(c, errs.AuthInvalidEmail)
+		// Malformed JSON or any unrecognised validation failure.
+		errs.Abort(c, errs.InvalidJSON)
 		return
 	}
 
