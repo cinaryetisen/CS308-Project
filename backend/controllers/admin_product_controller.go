@@ -82,16 +82,18 @@ func UpdateProduct(c *gin.Context) {
 	}
 
 	// Explicit allowlist: Price, Cost, Discount, and Quantity are completely locked out here!
+	// Pointer fields give true PATCH semantics — only fields present in the JSON
+	// are written, so a partial update can never blank out the omitted ones.
 	var input struct {
-		Name         string   `json:"name"`
-		Model        string   `json:"model"`
-		SerialNumber string   `json:"serial_number"`
-		Description  string   `json:"description"`
-		Category     string   `json:"category"`
-		Distributor  string   `json:"distributor"`
-		Warranty     string   `json:"warranty"`
-		ImageURL     string   `json:"image_url"`
-		Tags         []string `json:"tags"`
+		Name         *string   `json:"name"`
+		Model        *string   `json:"model"`
+		SerialNumber *string   `json:"serial_number"`
+		Description  *string   `json:"description"`
+		Category     *string   `json:"category"`
+		Distributor  *string   `json:"distributor"`
+		Warranty     *string   `json:"warranty"`
+		ImageURL     *string   `json:"image_url"`
+		Tags         *[]string `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -99,20 +101,41 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	updateData := bson.M{
-		"$set": bson.M{
-			"name":          input.Name,
-			"model":         input.Model,
-			"serial_number": input.SerialNumber,
-			"description":   input.Description,
-			"category":      input.Category,
-			"distributor":   input.Distributor,
-			"warranty":      input.Warranty,
-			"image_url":     input.ImageURL,
-			"tags":          input.Tags,
-			"updated_at":    time.Now(),
-		},
+	set := bson.M{"updated_at": time.Now()}
+	if input.Name != nil {
+		set["name"] = *input.Name
 	}
+	if input.Model != nil {
+		set["model"] = *input.Model
+	}
+	if input.SerialNumber != nil {
+		set["serial_number"] = *input.SerialNumber
+	}
+	if input.Description != nil {
+		set["description"] = *input.Description
+	}
+	if input.Category != nil {
+		set["category"] = *input.Category
+	}
+	if input.Distributor != nil {
+		set["distributor"] = *input.Distributor
+	}
+	if input.Warranty != nil {
+		set["warranty"] = *input.Warranty
+	}
+	if input.ImageURL != nil {
+		set["image_url"] = *input.ImageURL
+	}
+	if input.Tags != nil {
+		set["tags"] = *input.Tags
+	}
+
+	if len(set) == 1 { // only updated_at — nothing to change
+		errs.AbortWithDetail(c, errs.InvalidJSON, "no updatable fields provided")
+		return
+	}
+
+	updateData := bson.M{"$set": set}
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
