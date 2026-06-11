@@ -56,7 +56,7 @@ func CreateProduct(c *gin.Context) {
 		UpdatedAt:    time.Now(),
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -114,7 +114,7 @@ func UpdateProduct(c *gin.Context) {
 		},
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -143,7 +143,7 @@ func DeleteProduct(c *gin.Context) {
 		return
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -182,7 +182,7 @@ func UpdateStock(c *gin.Context) {
 		return
 	}
 
-	collection := config.MongoClient.Database("medieval_store").Collection("products")
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
