@@ -184,18 +184,37 @@ func ResolveRefund(c *gin.Context) {
 			return
 		}
 
-		// Mark the parent order as returned.
-		if err := tx.Model(&models.Order{}).Where("id = ?", refund.OrderID).
-			Update("status", "returned").Error; err != nil {
+		if err := tx.Save(&refund).Error; err != nil {
 			tx.Rollback()
 			errs.Abort(c, errs.InternalError)
 			return
 		}
 
-		if err := tx.Save(&refund).Error; err != nil {
+		// Req. 15 allows SELECTIVE returns: only flip the whole order to
+		// "returned" once every line item has an approved refund. Otherwise the
+		// order stays "delivered" so the remaining items can still be refunded.
+		var itemCount, refundedCount int64
+		if err := tx.Model(&models.OrderItem{}).Where("order_id = ?", refund.OrderID).
+			Count(&itemCount).Error; err != nil {
 			tx.Rollback()
 			errs.Abort(c, errs.InternalError)
 			return
+		}
+		if err := tx.Model(&models.Refund{}).
+			Where("order_id = ? AND status = ?", refund.OrderID, "approved").
+			Distinct("order_item_id").Count(&refundedCount).Error; err != nil {
+			tx.Rollback()
+			errs.Abort(c, errs.InternalError)
+			return
+		}
+
+		if refundedCount >= itemCount {
+			if err := tx.Model(&models.Order{}).Where("id = ?", refund.OrderID).
+				Update("status", "returned").Error; err != nil {
+				tx.Rollback()
+				errs.Abort(c, errs.InternalError)
+				return
+			}
 		}
 
 		tx.Commit()
