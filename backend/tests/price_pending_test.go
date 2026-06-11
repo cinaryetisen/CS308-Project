@@ -19,9 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// B11: PM-created products are invisible and unpurchasable until the sales
-// manager sets a real price (clearing the 99999.99 sentinel).
-
 func setupPricePendingRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -176,4 +173,77 @@ func TestPendingProduct_PriceSetPublishesIt(t *testing.T) {
 	listW := httptest.NewRecorder()
 	router.ServeHTTP(listW, listReq)
 	assert.Contains(t, listW.Body.String(), "Fresh Blade")
+}
+
+func TestUpdateProductPrice_SetsCost(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{
+		ID: productID, Name: "Costless", Price: 99999.99, Cost: 0, PricePending: true,
+	})
+
+	router := setupPricePendingRouter()
+	body, _ := json.Marshal(map[string]interface{}{"price": 200.0, "cost": 120.0})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/price", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(2, "sales_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, 200.0, saved.Price)
+	assert.Equal(t, 120.0, saved.Cost)
+	assert.False(t, saved.PricePending)
+}
+
+func TestUpdateProductPrice_CostOptional(t *testing.T) {
+	// Omitting cost leaves the existing cost untouched.
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{
+		ID: productID, Name: "Has Cost", Price: 100, Cost: 55,
+	})
+
+	router := setupPricePendingRouter()
+	body, _ := json.Marshal(map[string]interface{}{"price": 150.0})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/price", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(2, "sales_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, 150.0, saved.Price)
+	assert.Equal(t, 55.0, saved.Cost, "omitted cost must be left unchanged")
+}
+
+func TestUpdateProductPrice_NegativeCostRejected(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "X", Price: 100, Cost: 10})
+
+	router := setupPricePendingRouter()
+	body, _ := json.Marshal(map[string]interface{}{"price": 150.0, "cost": -5.0})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/price", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(2, "sales_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
