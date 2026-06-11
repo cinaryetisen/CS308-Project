@@ -1,0 +1,299 @@
+package tests
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"medieval-store/config"
+	"medieval-store/controllers"
+	"medieval-store/models"
+	"medieval-store/security"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+func setupAdminProductRouter() *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	pm := router.Group("/api/admin")
+	pm.Use(security.AuthMiddleware(), security.Authorize("product_manager"))
+	pm.POST("/products", controllers.CreateProduct)
+	pm.PATCH("/products/:id", controllers.UpdateProduct)
+	pm.DELETE("/products/:id", controllers.DeleteProduct)
+	pm.PATCH("/products/:id/stock", controllers.UpdateStock)
+	return router
+}
+
+func validProductPayload() map[string]interface{} {
+	return map[string]interface{}{
+		"name":          "Test Halberd",
+		"model":         "TST-001",
+		"serial_number": "SN-TEST-1",
+		"description":   "A halberd for unit tests.",
+		"quantity":      7,
+		"category":      "Weapons",
+		"distributor":   "Test Forge",
+		"warranty":      "1 Year",
+	}
+}
+
+// ==========================================
+// CreateProduct (B1)
+// ==========================================
+
+func TestCreateProduct_Success(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(validProductPayload())
+	req, _ := http.NewRequest("POST", "/api/admin/products", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	// Lands in the CONFIGURED test database (regression check for the
+	// hardcoded "medieval_store" bug), with the sentinel price applied.
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	var saved models.Product
+	err := collection.FindOne(context.Background(), bson.M{"serial_number": "SN-TEST-1"}).Decode(&saved)
+	assert.NoError(t, err)
+	assert.Equal(t, "Test Halberd", saved.Name)
+	assert.Equal(t, 7, saved.Quantity)
+	assert.Equal(t, 99999.99, saved.Price)
+}
+
+func TestCreateProduct_MissingRequiredFields(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"name": "No other fields"})
+	req, _ := http.NewRequest("POST", "/api/admin/products", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateProduct_RejectsCustomer(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(validProductPayload())
+	req, _ := http.NewRequest("POST", "/api/admin/products", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestCreateProduct_RejectsSalesManager(t *testing.T) {
+	// Separation of duties: catalog CRUD belongs to the product manager.
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(validProductPayload())
+	req, _ := http.NewRequest("POST", "/api/admin/products", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "sales_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// ==========================================
+// UpdateProduct (B2)
+// ==========================================
+
+func TestUpdateProduct_Success(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{
+		ID: productID, Name: "Old Name", Model: "M-1", SerialNumber: "SN-1",
+		Description: "Old description", Category: "Weapons", Distributor: "D", Warranty: "W",
+		Price: 100, Quantity: 5,
+	})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{
+		"name": "New Name", "model": "M-1", "serial_number": "SN-1",
+		"description": "New description", "category": "Weapons",
+		"distributor": "D", "warranty": "W",
+	})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, "New Name", saved.Name)
+	assert.Equal(t, "New description", saved.Description)
+	// Price/quantity are locked out of this endpoint
+	assert.Equal(t, 100.0, saved.Price)
+	assert.Equal(t, 5, saved.Quantity)
+}
+
+func TestUpdateProduct_NotFound(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"name": "Ghost"})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+primitive.NewObjectID().Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// ==========================================
+// DeleteProduct (B3)
+// ==========================================
+
+func TestDeleteProduct_SoftDeletes(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Doomed"})
+
+	router := setupAdminProductRouter()
+	req, _ := http.NewRequest("DELETE", "/api/admin/products/"+productID.Hex(), nil)
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Document still exists but carries deleted_at
+	var raw bson.M
+	err := collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&raw)
+	assert.NoError(t, err)
+	assert.NotNil(t, raw["deleted_at"], "soft delete must set deleted_at")
+}
+
+func TestDeleteProduct_NotFound(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	req, _ := http.NewRequest("DELETE", "/api/admin/products/"+primitive.NewObjectID().Hex(), nil)
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// ==========================================
+// UpdateStock (B4)
+// ==========================================
+
+func TestUpdateStock_Increase(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Restockable", Quantity: 2})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": 5})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, 7, saved.Quantity)
+}
+
+func TestUpdateStock_DecreaseBlockedWhenInsufficient(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Scarce", Quantity: 3})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": -5})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Filter requires quantity >= -delta, so nothing matches
+	assert.NotEqual(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, 3, saved.Quantity, "stock must be untouched")
+}
+
+func TestUpdateStock_DecreaseSuccess(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Plenty", Quantity: 10})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": -4})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, 6, saved.Quantity)
+}
+
+func TestUpdateStock_RejectsCustomer(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": 1})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+primitive.NewObjectID().Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "customer"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
