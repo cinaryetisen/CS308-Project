@@ -107,7 +107,7 @@ func TestUpdateOrderStatus_InvalidStatus(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid status")
+	assert.Contains(t, w.Body.String(), "ORDER_INVALID_STATUS")
 }
 func TestUpdateOrderStatus_OrderNotFound(t *testing.T) {
 	setupTestDB()
@@ -198,7 +198,7 @@ func TestDownloadInvoice_Unauthorized(t *testing.T) {
 
 	// Should be blocked!
 	assert.Equal(t, http.StatusForbidden, w.Code)
-	assert.Contains(t, w.Body.String(), "Unauthorized to view this invoice")
+	assert.Contains(t, w.Body.String(), "ORDER_FORBIDDEN")
 }
 
 // ==========================================
@@ -281,7 +281,7 @@ func TestCancelOrder_AlreadyDelivered(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Only orders still in processing")
+	assert.Contains(t, w.Body.String(), "ORDER_NOT_CANCELLABLE")
 
 	var saved models.Order
 	config.DB.First(&saved, 1)
