@@ -183,8 +183,12 @@ func TestGetCart_Empty(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	// Empty cart short-circuits to []models.Product{} (cart_controller.go:73-76)
+	// Empty cart returns the SAME type as the populated branch (B16) so future
+	// fields can never desync the two responses.
 	assert.Equal(t, "[]", w.Body.String())
+	var response []models.CartItemResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	assert.Empty(t, response)
 }
 
 // ==========================================
