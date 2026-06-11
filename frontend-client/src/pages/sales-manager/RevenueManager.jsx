@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 const API_BASE = import.meta.env.VITE_API_URL;
+
+// Palette for the category pie slices.
+const PIE_COLORS = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#ca8a04", "#db2777"];
 
 function today() {
     return new Date().toISOString().slice(0, 10);
@@ -41,6 +47,13 @@ export default function RevenueManager() {
         <div className="bg-white border border-gray-200 rounded-xl px-5 py-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
             <p className={`text-2xl font-bold ${color}`}>${Number(value).toFixed(2)}</p>
+        </div>
+    );
+
+    const countCard = (label, value) => (
+        <div className="bg-white border border-gray-200 rounded-xl px-5 py-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+            <p className="text-2xl font-bold text-gray-900">{value ?? 0}</p>
         </div>
     );
 
@@ -103,11 +116,15 @@ export default function RevenueManager() {
                         {statCard("Total Cost", data.total_cost, "text-gray-700")}
                         {statCard("Profit", data.profit, data.profit >= 0 ? "text-green-600" : "text-red-600")}
                     </div>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        {countCard("Orders", data.order_count)}
+                        {countCard("Items Sold", data.items_sold)}
+                    </div>
 
-                    {/* Chart */}
+                    {/* Revenue/Profit line chart */}
                     {data.daily && data.daily.length > 0 ? (
-                        <div className="bg-white border border-gray-200 rounded-xl p-5">
-                            <h2 className="text-sm font-bold text-gray-700 mb-4">Daily Breakdown</h2>
+                        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+                            <h2 className="text-sm font-bold text-gray-700 mb-4">Daily Revenue & Profit</h2>
                             <ResponsiveContainer width="100%" height={280}>
                                 <LineChart data={data.daily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -125,6 +142,47 @@ export default function RevenueManager() {
                             <p className="text-3xl mb-2">📊</p>
                             <p className="text-gray-600 font-semibold">No orders in this period</p>
                             <p className="text-sm text-gray-400 mt-1">Try a wider date range.</p>
+                        </div>
+                    )}
+
+                    {/* Daily order count bar chart */}
+                    {data.daily && data.daily.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+                            <h2 className="text-sm font-bold text-gray-700 mb-4">Orders per Day</h2>
+                            <ResponsiveContainer width="100%" height={240}>
+                                <BarChart data={data.daily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                                    <Tooltip />
+                                    <Bar dataKey="orders" fill="#9333ea" name="Orders" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
+                    {/* Revenue-by-category pie chart */}
+                    {data.by_category && data.by_category.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-xl p-5">
+                            <h2 className="text-sm font-bold text-gray-700 mb-4">Revenue by Category</h2>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie
+                                        data={data.by_category}
+                                        dataKey="revenue"
+                                        nameKey="category"
+                                        cx="50%" cy="50%"
+                                        outerRadius={100}
+                                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                        {data.by_category.map((entry, i) => (
+                                            <Cell key={entry.category} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={v => `$${Number(v).toFixed(2)}`} />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
                     )}
                 </>
