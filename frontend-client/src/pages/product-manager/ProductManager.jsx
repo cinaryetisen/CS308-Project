@@ -182,7 +182,9 @@ export default function ProductManager() {
         try {
             const token = localStorage.getItem("token");
             const [pRes, cRes] = await Promise.all([
-                fetch(`${API_BASE}/api/products`),
+                // include_pending so the PM can manage products that are still
+                // awaiting a sales-manager price (hidden from the storefront).
+                fetch(`${API_BASE}/api/products?include_pending=true`),
                 fetch(`${API_BASE}/api/categories`),
             ]);
             setProducts(pRes.ok ? await pRes.json() : []);

@@ -146,7 +146,9 @@ export default function PricingManager() {
 
     async function fetchProducts() {
         try {
-            const res = await fetch(`${API_BASE}/api/products`);
+            // include_pending so the sales manager can price products the PM just
+            // created (which are hidden from the public storefront until priced).
+            const res = await fetch(`${API_BASE}/api/products?include_pending=true`);
             if (!res.ok) throw new Error("Failed to load products");
             setProducts(await res.json());
         } catch (e) {
