@@ -74,3 +74,20 @@ func TestFindWishlistUsersForProduct_OneRowPerUser(t *testing.T) {
 	assert.Len(t, users, 1)
 	assert.Equal(t, "arthur@camelot.com", users[0].Email)
 }
+
+// ==========================================
+// Change detection (B15)
+// ==========================================
+
+func TestShouldNotifyDiscount(t *testing.T) {
+	// New discount applied — notify.
+	assert.True(t, services.ShouldNotifyDiscount(0, 20))
+	// Discount changed to a different positive value — notify.
+	assert.True(t, services.ShouldNotifyDiscount(20, 30))
+	// Same discount re-saved — stay silent (no re-spamming wishlist users).
+	assert.False(t, services.ShouldNotifyDiscount(20, 20))
+	// Discount removed — stay silent.
+	assert.False(t, services.ShouldNotifyDiscount(20, 0))
+	// Never had a discount, still none — stay silent.
+	assert.False(t, services.ShouldNotifyDiscount(0, 0))
+}
