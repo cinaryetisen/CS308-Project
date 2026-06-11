@@ -43,6 +43,7 @@ func CreateProduct(c *gin.Context) {
 		Description:  input.Description,
 		Quantity:     input.Quantity,
 		Price:        99999.99,
+		PricePending: true, // hidden from the storefront until Sales sets a real price
 		Cost:         0.0,
 		Discount:     0.0,
 		Category:     input.Category,
