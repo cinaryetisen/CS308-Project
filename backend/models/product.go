@@ -37,3 +37,11 @@ type Product struct {
 	UpdatedAt time.Time  `bson:"updated_at" json:"updated_at"`
 	DeletedAt *time.Time `bson:"deleted_at,omitempty" json:"deleted_at,omitempty"` // NEW: For soft deletes`
 }
+
+// EffectivePrice is the price the customer actually pays: base price with the
+// active discount applied. Every money-path (cart, checkout, invoices) must
+// charge this — never raw Price — so the advertised discount is honored and
+// the OrderItem.Price snapshot used for refunds stays correct.
+func (p Product) EffectivePrice() float64 {
+	return p.Price * (1 - p.Discount/100)
+}

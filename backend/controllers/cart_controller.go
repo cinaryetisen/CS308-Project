@@ -102,15 +102,18 @@ func GetCart(c *gin.Context) {
 	var response []models.CartItemResponse
 	for _, item := range items {
 		if p, found := productMap[item.ProductID]; found {
+			effective := p.EffectivePrice()
 			response = append(response, models.CartItemResponse{
-				ProductID: p.ID.Hex(),
-				Name:      p.Name,
-				Price:     p.Price,
-				Quantity:  item.Quantity,
-				Subtotal:  float64(item.Quantity) * p.Price,
-				ImageURL:  p.ImageURL,
-				Stock:     p.Quantity,
-				Category:  p.Category,
+				ProductID:     p.ID.Hex(),
+				Name:          p.Name,
+				Price:         effective,
+				OriginalPrice: p.Price,
+				Discount:      p.Discount,
+				Quantity:      item.Quantity,
+				Subtotal:      float64(item.Quantity) * effective,
+				ImageURL:      p.ImageURL,
+				Stock:         p.Quantity,
+				Category:      p.Category,
 			})
 		}
 	}
