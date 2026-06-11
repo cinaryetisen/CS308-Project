@@ -34,9 +34,9 @@ func GetProduct(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	//Query database for specific ID
+	//Query database for specific ID (soft-deleted products read as not found)
 	var product models.Product
-	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&product)
+	err = collection.FindOne(ctx, bson.M{"_id": objectID, "deleted_at": nil}).Decode(&product)
 
 	//Handle errors
 	if err != nil {
@@ -66,7 +66,11 @@ func GetProducts(c *gin.Context) {
 	pipeline := mongo.Pipeline{}
 
 	// Stage A: Search & Category Filter ($match)
-	var andConditions []bson.M
+	// Soft-deleted products are excluded from every public listing.
+	// {deleted_at: nil} matches both a missing field and an explicit null.
+	andConditions := []bson.M{
+		{"deleted_at": nil},
+	}
 
 	if searchQuery != "" {
 		regex := primitive.Regex{Pattern: searchQuery, Options: "i"}

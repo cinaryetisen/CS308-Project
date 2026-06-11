@@ -120,9 +120,11 @@ func Checkout(c *gin.Context) {
 		productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 
 		// Filter: Only match the product IF it has enough stock (>= item.Quantity)
+		// and has not been soft-deleted (stale carts can still reference removed items).
 		filter := bson.M{
-			"_id":      objID,
-			"quantity": bson.M{"$gte": item.Quantity},
+			"_id":        objID,
+			"quantity":   bson.M{"$gte": item.Quantity},
+			"deleted_at": nil,
 		}
 
 		// Update: Subtract the amount

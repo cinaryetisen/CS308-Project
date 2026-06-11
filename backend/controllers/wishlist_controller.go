@@ -67,7 +67,8 @@ func GetWishlist(c *gin.Context) {
 	}
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
-	cursor, err := collection.Find(ctx, bson.M{"_id": bson.M{"$in": objectIDs}})
+	// Soft-deleted products silently drop out of the wishlist view.
+	cursor, err := collection.Find(ctx, bson.M{"_id": bson.M{"$in": objectIDs}, "deleted_at": nil})
 	if err != nil {
 		errs.Abort(c, errs.InternalError)
 		return
