@@ -81,16 +81,25 @@ func CreateRating(c *gin.Context) {
 			return
 		}
 
-		var product models.Product
-		if pErr := productsColl.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); pErr == nil && product.ReviewCount > 0 {
-			newAvg := recomputeAvgOnUpdate(product.Rating, product.ReviewCount, existing.Rating, input.Rating)
-			if _, err := productsColl.UpdateOne(
-				context.Background(),
-				bson.M{"_id": objID},
-				bson.M{"$set": bson.M{"rating": newAvg}},
-			); err != nil {
-				log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
-			}
+		// Shift the running average by this user's delta in ONE atomic pipeline
+		// update — the math runs inside MongoDB against the current document, so
+		// concurrent raters can't interleave a stale read-modify-write.
+		delta := float64(input.Rating - existing.Rating)
+		safeCount := bson.M{"$ifNull": bson.A{"$review_count", 0}}
+		avgShift := mongo.Pipeline{
+			{{Key: "$set", Value: bson.M{
+				"rating": bson.M{"$cond": bson.A{
+					bson.M{"$gt": bson.A{safeCount, 0}},
+					bson.M{"$add": bson.A{
+						bson.M{"$ifNull": bson.A{"$rating", 0}},
+						bson.M{"$divide": bson.A{delta, safeCount}},
+					}},
+					bson.M{"$ifNull": bson.A{"$rating", 0}},
+				}},
+			}}},
+		}
+		if _, err := productsColl.UpdateOne(context.Background(), bson.M{"_id": objID}, avgShift); err != nil {
+			log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Rating updated"})
@@ -112,20 +121,25 @@ func CreateRating(c *gin.Context) {
 			return
 		}
 
-		var product models.Product
-		if pErr := productsColl.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&product); pErr == nil {
-			newCount := product.ReviewCount + 1
-			newAvg := ((product.Rating * float64(product.ReviewCount)) + float64(input.Rating)) / float64(newCount)
-			if _, err := productsColl.UpdateOne(
-				context.Background(),
-				bson.M{"_id": objID},
-				bson.M{"$set": bson.M{
-					"rating":       newAvg,
-					"review_count": newCount,
+		// Fold the new rating into the average in ONE atomic pipeline update.
+		// All field references on the right-hand side read the pre-update values,
+		// so: rating = (old_avg*old_count + new) / (old_count+1), count = old+1.
+		safeRating := bson.M{"$ifNull": bson.A{"$rating", 0}}
+		safeCount := bson.M{"$ifNull": bson.A{"$review_count", 0}}
+		avgFold := mongo.Pipeline{
+			{{Key: "$set", Value: bson.M{
+				"rating": bson.M{"$divide": bson.A{
+					bson.M{"$add": bson.A{
+						bson.M{"$multiply": bson.A{safeRating, safeCount}},
+						float64(input.Rating),
+					}},
+					bson.M{"$add": bson.A{safeCount, 1}},
 				}},
-			); err != nil {
-				log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
-			}
+				"review_count": bson.M{"$add": bson.A{safeCount, 1}},
+			}}},
+		}
+		if _, err := productsColl.UpdateOne(context.Background(), bson.M{"_id": objID}, avgFold); err != nil {
+			log.Printf("failed to update product average rating for %s: %v", objID.Hex(), err)
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "Rating submitted successfully."})
@@ -135,15 +149,6 @@ func CreateRating(c *gin.Context) {
 		errs.Abort(c, errs.InternalError)
 		return
 	}
-}
-
-// recomputeAvgOnUpdate returns the new running average after one user's rating is replaced.
-// Count stays the same; only the contribution from one user changes.
-func recomputeAvgOnUpdate(oldAvg float64, count int, oldUserRating, newUserRating int) float64 {
-	if count == 0 {
-		return float64(newUserRating)
-	}
-	return (oldAvg*float64(count) - float64(oldUserRating) + float64(newUserRating)) / float64(count)
 }
 
 // GetProductRatings returns every rating for a product (public).
