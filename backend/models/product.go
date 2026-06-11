@@ -19,6 +19,10 @@ type Product struct {
 	Price    float64 `bson:"price" json:"price"`       // How much the customer pays
 	Discount float64 `bson:"discount" json:"discount"` // e.g., 10.0 for 10% off
 
+	// True from PM creation until the sales manager sets a real price.
+	// Pending products are hidden from the public storefront and unpurchasable.
+	PricePending bool `bson:"price_pending,omitempty" json:"price_pending,omitempty"`
+
 	// Logistics
 	Warranty    string `bson:"warranty" json:"warranty"`
 	Distributor string `bson:"distributor" json:"distributor"`

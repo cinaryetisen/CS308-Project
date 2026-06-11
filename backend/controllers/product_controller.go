@@ -34,9 +34,14 @@ func GetProduct(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	//Query database for specific ID (soft-deleted products read as not found)
+	//Query database for specific ID (soft-deleted products read as not found;
+	//pending-price products too, unless a manager panel asks for them)
+	detailFilter := bson.M{"_id": objectID, "deleted_at": nil}
+	if c.Query("include_pending") != "true" {
+		detailFilter["price_pending"] = bson.M{"$ne": true}
+	}
 	var product models.Product
-	err = collection.FindOne(ctx, bson.M{"_id": objectID, "deleted_at": nil}).Decode(&product)
+	err = collection.FindOne(ctx, detailFilter).Decode(&product)
 
 	//Handle errors
 	if err != nil {
@@ -70,6 +75,12 @@ func GetProducts(c *gin.Context) {
 	// {deleted_at: nil} matches both a missing field and an explicit null.
 	andConditions := []bson.M{
 		{"deleted_at": nil},
+	}
+
+	// Products awaiting a sales-manager price are hidden from the storefront.
+	// Manager panels pass include_pending=true to keep seeing them.
+	if c.Query("include_pending") != "true" {
+		andConditions = append(andConditions, bson.M{"price_pending": bson.M{"$ne": true}})
 	}
 
 	if searchQuery != "" {
@@ -174,10 +185,11 @@ func UpdateProductPrice(c *gin.Context) {
 	}
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	// Setting a real price also clears the pending flag, publishing the product.
 	result, err := collection.UpdateOne(
 		context.Background(),
 		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"price": input.Price, "updated_at": time.Now()}},
+		bson.M{"$set": bson.M{"price": input.Price, "price_pending": false, "updated_at": time.Now()}},
 	)
 	if err != nil {
 		errs.Abort(c, errs.InternalError)
