@@ -5,11 +5,37 @@ const API_BASE = import.meta.env.VITE_API_URL;
 function today() { return new Date().toISOString().slice(0, 10); }
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
+// Fetch a PDF endpoint as a blob (Bearer auth) and trigger a browser download.
+async function downloadPdf(url, filename) {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error("Failed to generate PDF");
+    const blob = await res.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(objectUrl);
+}
+
 function OrderRow({ order }) {
     const [expanded, setExpanded] = useState(false);
+    const [pdfErr, setPdfErr]     = useState(false);
     const date = new Date(order.created_at).toLocaleDateString("en-US", {
         year: "numeric", month: "short", day: "numeric",
     });
+
+    async function handleRowPdf() {
+        setPdfErr(false);
+        try {
+            await downloadPdf(`/api/orders/${order.delivery_id}/invoice`, `invoice_${order.delivery_id}.pdf`);
+        } catch {
+            setPdfErr(true);
+        }
+    }
 
     const STATUS_STYLES = {
         processing:   "bg-yellow-100 text-yellow-700",
@@ -31,12 +57,19 @@ function OrderRow({ order }) {
                     </span>
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">${order.total_price.toFixed(2)}</td>
-                <td className="px-5 py-3 text-right">
+                <td className="px-5 py-3 text-right whitespace-nowrap">
                     <button
                         onClick={() => setExpanded(e => !e)}
                         className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors"
                     >
                         {expanded ? "Hide" : "View"} items
+                    </button>
+                    <button
+                        onClick={handleRowPdf}
+                        className="ml-2 text-xs text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg transition-colors"
+                        title="Download this invoice as PDF"
+                    >
+                        {pdfErr ? "Retry PDF" : "PDF"}
                     </button>
                 </td>
             </tr>
@@ -76,6 +109,19 @@ export default function InvoiceList() {
     const [orders, setOrders] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError]   = useState(null);
+    const [savingAll, setSavingAll] = useState(false);
+
+    async function handleSaveAll() {
+        setSavingAll(true);
+        setError(null);
+        try {
+            await downloadPdf(`/api/admin/invoices?from=${from}&to=${to}&format=pdf`, `invoices_${from}_${to}.pdf`);
+        } catch {
+            setError("Failed to export invoices as PDF.");
+        } finally {
+            setSavingAll(false);
+        }
+    }
 
     async function fetchInvoices() {
         if (!from || !to) { setError("Please select both dates."); return; }
@@ -142,11 +188,20 @@ export default function InvoiceList() {
                     </div>
                 ) : (
                     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
                             <p className="text-sm font-semibold text-gray-700">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
-                            <p className="text-sm font-bold text-gray-900">
-                                Total: ${orders.reduce((s, o) => s + o.total_price, 0).toFixed(2)}
-                            </p>
+                            <div className="flex items-center gap-4">
+                                <p className="text-sm font-bold text-gray-900">
+                                    Total: ${orders.reduce((s, o) => s + o.total_price, 0).toFixed(2)}
+                                </p>
+                                <button
+                                    onClick={handleSaveAll}
+                                    disabled={savingAll}
+                                    className="bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors"
+                                >
+                                    {savingAll ? "Generating…" : "Save All as PDF"}
+                                </button>
+                            </div>
                         </div>
                         <table className="w-full text-sm">
                             <thead>
