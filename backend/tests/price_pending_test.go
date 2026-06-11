@@ -62,6 +62,8 @@ func createPendingProduct(t *testing.T, router *gin.Engine) primitive.ObjectID {
 func TestPendingProduct_HiddenFromPublicListing(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	router := setupPricePendingRouter()
@@ -78,6 +80,8 @@ func TestPendingProduct_HiddenFromPublicListing(t *testing.T) {
 func TestPendingProduct_VisibleWithIncludePending(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	router := setupPricePendingRouter()
@@ -94,6 +98,8 @@ func TestPendingProduct_VisibleWithIncludePending(t *testing.T) {
 func TestPendingProduct_DetailHiddenWithoutParam(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	router := setupPricePendingRouter()
@@ -113,6 +119,8 @@ func TestPendingProduct_DetailHiddenWithoutParam(t *testing.T) {
 func TestPendingProduct_CheckoutBlocked(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearTestDB()
 	defer clearMongoCollection("products")
 
@@ -141,6 +149,8 @@ func TestPendingProduct_CheckoutBlocked(t *testing.T) {
 func TestPendingProduct_PriceSetPublishesIt(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	router := setupPricePendingRouter()

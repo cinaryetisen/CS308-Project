@@ -14,6 +14,17 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// categoryExists reports whether a category with this exact name is registered.
+// Product create/update validate against this so the catalog can't reference
+// categories that were never created (or were deleted) in the admin panel.
+func categoryExists(name string) (bool, error) {
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("categories")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	count, err := collection.CountDocuments(ctx, bson.M{"name": name})
+	return count > 0, err
+}
+
 // B1: Create a new product (Product Manager Only)
 func CreateProduct(c *gin.Context) {
 	var input struct {
@@ -31,6 +42,17 @@ func CreateProduct(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
+		return
+	}
+
+	// The category must be one registered through the admin category endpoints.
+	exists, err := categoryExists(input.Category)
+	if err != nil {
+		errs.Abort(c, errs.InternalError)
+		return
+	}
+	if !exists {
+		errs.Abort(c, errs.CategoryNotFound)
 		return
 	}
 
@@ -61,8 +83,7 @@ func CreateProduct(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := collection.InsertOne(ctx, product)
-	if err != nil {
+	if _, err := collection.InsertOne(ctx, product); err != nil {
 		errs.Abort(c, errs.InternalError)
 		return
 	}
@@ -116,6 +137,15 @@ func UpdateProduct(c *gin.Context) {
 		set["description"] = *input.Description
 	}
 	if input.Category != nil {
+		exists, err := categoryExists(*input.Category)
+		if err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
+		if !exists {
+			errs.Abort(c, errs.CategoryNotFound)
+			return
+		}
 		set["category"] = *input.Category
 	}
 	if input.Distributor != nil {

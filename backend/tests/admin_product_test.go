@@ -31,6 +31,13 @@ func setupAdminProductRouter() *gin.Engine {
 	return router
 }
 
+// seedCategory registers a category so product create/update validation passes.
+func seedCategory(t *testing.T, name string) {
+	t.Helper()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("categories")
+	collection.InsertOne(context.Background(), models.Category{Name: name})
+}
+
 func validProductPayload() map[string]interface{} {
 	return map[string]interface{}{
 		"name":          "Test Halberd",
@@ -51,6 +58,8 @@ func validProductPayload() map[string]interface{} {
 func TestCreateProduct_Success(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	router := setupAdminProductRouter()
@@ -90,6 +99,8 @@ func TestCreateProduct_MissingRequiredFields(t *testing.T) {
 func TestCreateProduct_RejectsCustomer(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 
 	router := setupAdminProductRouter()
 	body, _ := json.Marshal(validProductPayload())
@@ -123,6 +134,8 @@ func TestCreateProduct_RejectsSalesManager(t *testing.T) {
 func TestUpdateProduct_Success(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
+	seedCategory(t, "Weapons")
+	defer clearMongoCollection("categories")
 	defer clearMongoCollection("products")
 
 	productID := primitive.NewObjectID()
@@ -349,4 +362,81 @@ func TestUpdateStock_RejectsCustomer(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// ==========================================
+// Category validation (B12)
+// ==========================================
+
+func TestCreateProduct_UnknownCategoryRejected(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("categories")
+	defer clearMongoCollection("products")
+
+	// No categories seeded — "Weapons" is unknown here.
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(validProductPayload())
+	req, _ := http.NewRequest("POST", "/api/admin/products", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "CATEGORY_NOT_FOUND")
+
+	// Nothing persisted
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	count, _ := collection.CountDocuments(context.Background(), bson.M{"serial_number": "SN-TEST-1"})
+	assert.Equal(t, int64(0), count)
+}
+
+func TestUpdateProduct_UnknownCategoryRejected(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("categories")
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Stable", Category: "Weapons"})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"category": "Nonexistent"})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "CATEGORY_NOT_FOUND")
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, "Weapons", saved.Category, "category must be unchanged")
+}
+
+func TestUpdateProduct_KnownCategoryAccepted(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	seedCategory(t, "Spells")
+	defer clearMongoCollection("categories")
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Recat", Category: "Weapons"})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"category": "Spells"})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, "Spells", saved.Category)
 }
