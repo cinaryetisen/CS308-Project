@@ -7,18 +7,19 @@ export default function Sidebar() {
     const [loading, setLoading]       = useState(true);
 
     useEffect(() => {
-        const fetchCategoriesFromProducts = async () => {
+        const fetchCategories = async () => {
             try {
-                const products      = await apiRequest("/api/products", {}, false);
-                const allCategories = products.map(p => p.category).filter(Boolean);
-                setCategories([...new Set(allCategories)]);
+                // Use the canonical category list so newly created categories show
+                // up immediately — even before any product is assigned to them.
+                const cats = await apiRequest("/api/categories", {}, false);
+                setCategories((cats || []).map(c => c.name).filter(Boolean));
             } catch (error) {
                 console.error("Error fetching categories:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchCategoriesFromProducts();
+        fetchCategories();
     }, []);
 
     return (
