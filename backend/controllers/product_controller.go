@@ -166,15 +166,20 @@ func GetProducts(c *gin.Context) {
 	c.JSON(http.StatusOK, products)
 }
 
-// Update a product's base price (sales manager only).
+// Update a product's base price (and optionally its cost) — sales manager only.
 func UpdateProductPrice(c *gin.Context) {
 	productID := c.Param("id")
 
 	var input struct {
-		Price float64 `json:"price" binding:"required,gt=0"`
+		Price float64  `json:"price" binding:"required,gt=0"`
+		Cost  *float64 `json:"cost"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errs.AbortWithDetail(c, errs.InvalidJSON, err.Error())
+		return
+	}
+	if input.Cost != nil && *input.Cost < 0 {
+		errs.AbortWithDetail(c, errs.InvalidJSON, "cost cannot be negative")
 		return
 	}
 
@@ -184,13 +189,15 @@ func UpdateProductPrice(c *gin.Context) {
 		return
 	}
 
-	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	// Setting a real price also clears the pending flag, publishing the product.
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"price": input.Price, "price_pending": false, "updated_at": time.Now()}},
-	)
+	set := bson.M{"price": input.Price, "price_pending": false, "updated_at": time.Now()}
+	if input.Cost != nil {
+		set["cost"] = *input.Cost
+	}
+
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": set})
+
 	if err != nil {
 		errs.Abort(c, errs.InternalError)
 		return
@@ -200,7 +207,11 @@ func UpdateProductPrice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Price updated successfully", "price": input.Price})
+	resp := gin.H{"message": "Price updated successfully", "price": input.Price}
+	if input.Cost != nil {
+		resp["cost"] = *input.Cost
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // Set a discount percentage on a product and notifie wishlist users.
