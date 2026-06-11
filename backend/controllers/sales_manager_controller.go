@@ -9,6 +9,7 @@ import (
 	"medieval-store/config"
 	"medieval-store/errs"
 	"medieval-store/models"
+	"medieval-store/services"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -78,7 +79,7 @@ func GetRevenue(c *gin.Context) {
 	// 4. Query MongoDB for Product Costs
 	costMap := make(map[string]float64)
 	if len(objectIDs) > 0 {
-		collection := config.MongoClient.Database("medieval_store").Collection("products")
+		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -174,5 +175,88 @@ func GetInvoicesByDateRange(c *gin.Context) {
 		return
 	}
 
+	// ?format=pdf streams every invoice in range as ONE multi-page document —
+	// the "save all invoices" export for the sales manager.
+	if c.Query("format") == "pdf" {
+		bundles, err := buildInvoiceBundles(orders)
+		if err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
+		pdfBytes, err := services.GenerateBulkInvoicePDF(bundles)
+		if err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
+		c.Header("Content-Disposition", `attachment; filename="invoices_`+from+`_`+to+`.pdf"`)
+		c.Data(http.StatusOK, "application/pdf", pdfBytes)
+		return
+	}
+
 	c.JSON(http.StatusOK, orders)
+}
+
+// buildInvoiceBundles resolves the customers and product names for a set of
+// orders so the PDF renderer has everything it needs.
+func buildInvoiceBundles(orders []models.Order) ([]services.InvoiceBundle, error) {
+	// Collect unique customer IDs and product ObjectIDs across all orders.
+	customerIDs := make(map[uint]bool)
+	productIDs := make(map[string]primitive.ObjectID)
+	for _, o := range orders {
+		customerIDs[o.CustomerID] = true
+		for _, item := range o.Items {
+			if oid, err := primitive.ObjectIDFromHex(item.ProductID); err == nil {
+				productIDs[item.ProductID] = oid
+			}
+		}
+	}
+
+	// Fetch all customers in one query.
+	ids := make([]uint, 0, len(customerIDs))
+	for id := range customerIDs {
+		ids = append(ids, id)
+	}
+	userMap := make(map[uint]models.User)
+	if len(ids) > 0 {
+		var users []models.User
+		if err := config.DB.Where("id IN ?", ids).Find(&users).Error; err != nil {
+			return nil, err
+		}
+		for _, u := range users {
+			userMap[u.ID] = u
+		}
+	}
+
+	// Fetch all referenced products in one query.
+	productMap := make(map[string]models.Product)
+	if len(productIDs) > 0 {
+		var objIDs []primitive.ObjectID
+		for _, oid := range productIDs {
+			objIDs = append(objIDs, oid)
+		}
+		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		cursor, err := collection.Find(ctx, bson.M{"_id": bson.M{"$in": objIDs}})
+		if err == nil {
+			var products []models.Product
+			if err := cursor.All(ctx, &products); err == nil {
+				for _, p := range products {
+					productMap[p.ID.Hex()] = p
+				}
+			}
+		}
+		// Product lookup failures degrade to "Unknown Artifact" names, not errors.
+	}
+
+	bundles := make([]services.InvoiceBundle, 0, len(orders))
+	for _, o := range orders {
+		bundles = append(bundles, services.InvoiceBundle{
+			User:       userMap[o.CustomerID],
+			Order:      o,
+			Items:      o.Items,
+			ProductMap: productMap,
+		})
+	}
+	return bundles, nil
 }

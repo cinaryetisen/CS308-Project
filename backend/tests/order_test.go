@@ -160,6 +160,7 @@ func TestGetMyOrders_EmptyList(t *testing.T) {
 
 func TestDownloadInvoice_Success(t *testing.T) {
 	setupTestDB()
+	ensureMongo()
 	defer clearTestDB()
 
 	// Setup a user, order, and an order item to ensure preload works

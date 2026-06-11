@@ -152,8 +152,9 @@ func DownloadInvoice(c *gin.Context) {
 		return
 	}
 
-	// 2. SECURITY GUARD: Only the owner or a PM can download this invoice!
-	if role != "product_manager" && order.CustomerID != userID.(uint) {
+	// 2. SECURITY GUARD: Only the owner or a manager can download this invoice.
+	// Sales managers need access too — req. 11 has them viewing/printing all invoices.
+	if role != "product_manager" && role != "sales_manager" && order.CustomerID != userID.(uint) {
 		errs.Abort(c, errs.OrderForbidden)
 		return
 	}
