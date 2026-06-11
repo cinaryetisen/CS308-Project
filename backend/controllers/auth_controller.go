@@ -13,12 +13,14 @@ import (
 )
 
 type SignupInput struct {
-	Name        string  `json:"name" binding:"required"`
-	Email       string  `json:"email" binding:"required,email"`
-	TaxID       string  `json:"tax_id"`
-	HomeAddress string  `json:"home_address"`
-	Password    string  `json:"password" binding:"required,min=6"`
-	Role        *string `json:"role,omitempty"`
+	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	TaxID       string `json:"tax_id"`
+	HomeAddress string `json:"home_address"`
+	Password    string `json:"password" binding:"required,min=6"`
+	// NOTE: no Role field. Public signup always creates customers — manager
+	// accounts are provisioned by the seeder. A client-supplied role here was
+	// a privilege-escalation hole (anyone could self-register as a manager).
 }
 
 type LoginInput struct {
@@ -49,7 +51,7 @@ func Signup(c *gin.Context) {
 		return
 	}
 
-	//Create user
+	//Create user (public signup is always a customer)
 	user := models.User{
 		Name:        input.Name,
 		Email:       input.Email,
@@ -57,10 +59,6 @@ func Signup(c *gin.Context) {
 		TaxID:       input.TaxID,
 		HomeAddress: input.HomeAddress,
 		Role:        "customer",
-	}
-
-	if input.Role != nil {
-		user.Role = *input.Role
 	}
 
 	var count int64
