@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { apiRequest } from "../api/client";
 
 const STATUS_STYLES = {
@@ -172,11 +172,30 @@ function ItemsTable({ order, productMap, existingRefunds, onRefundSubmitted }) {
     );
 }
 
-function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubmitted }) {
-    const [expanded, setExpanded] = useState(false);
+function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubmitted, onOrderChanged }) {
+    const [expanded, setExpanded]     = useState(false);
+    const [cancelling, setCancelling] = useState(false);
+    const [cancelErr, setCancelErr]   = useState(null);
     const date = new Date(order.created_at).toLocaleDateString("en-US", {
         year: "numeric", month: "short", day: "numeric",
     });
+
+    // Only orders still in "processing" can be cancelled (in-transit/delivered
+    // must go through the refund flow). Matches the backend rule.
+    const isCancellable = order.status === "processing";
+
+    async function handleCancel() {
+        if (!window.confirm(`Cancel order #${order.delivery_id}? This restocks the items and cannot be undone.`)) return;
+        setCancelling(true);
+        setCancelErr(null);
+        try {
+            await apiRequest(`/api/orders/${order.delivery_id}/cancel`, { method: "POST" });
+            onOrderChanged();
+        } catch (err) {
+            setCancelErr(err.message);
+            setCancelling(false);
+        }
+    }
 
     return (
         <div className={`bg-[var(--surface)] border rounded-lg overflow-hidden shadow-[0_0_20px_rgba(138,71,175,0.06)] ${
@@ -222,6 +241,20 @@ function OrderCard({ order, isCurrent, productMap, existingRefunds, onRefundSubm
                 </span>
                 <p className="text-sm text-[var(--text)] mt-1">{order.delivery_address}</p>
             </div>
+
+            {/* Cancel (processing orders only) */}
+            {isCancellable && (
+                <div className="px-5 pb-3 flex flex-col items-end gap-1">
+                    {cancelErr && <p className="text-xs text-[#ffdad6] self-start">✕ {cancelErr}</p>}
+                    <button
+                        onClick={handleCancel}
+                        disabled={cancelling}
+                        className="text-xs font-semibold px-4 py-1.5 rounded border border-[#93000a]/60 text-[#ffdad6] bg-[#93000a]/20 hover:bg-[#93000a]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                        {cancelling ? "Cancelling…" : "Cancel Order"}
+                    </button>
+                </div>
+            )}
 
             {/* Refund hint */}
             {order.status === "delivered" && !expanded && (
@@ -287,43 +320,44 @@ export default function MyOrders() {
         } catch { /* silently fail */ }
     }
 
-    useEffect(() => {
-        async function fetchAll() {
-            try {
-                const data = await apiRequest("/api/orders/me");
-                data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                setOrders(data);
+    async function fetchOrders() {
+        try {
+            const data = await apiRequest("/api/orders/me");
+            data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setOrders(data);
 
-                const isValidId = (id) => typeof id === "string" && /^[a-f0-9]{24}$/i.test(id);
-                const uniqueIds = [
-                    ...new Set(
-                        data.flatMap((order) => (order.items || []).map((item) => item.product_id))
-                            .filter(isValidId)
-                    ),
-                ];
+            const isValidId = (id) => typeof id === "string" && /^[a-f0-9]{24}$/i.test(id);
+            const uniqueIds = [
+                ...new Set(
+                    data.flatMap((order) => (order.items || []).map((item) => item.product_id))
+                        .filter(isValidId)
+                ),
+            ];
 
-                if (uniqueIds.length > 0) {
-                    const results = await Promise.all(
-                        uniqueIds.map(async (pid) => {
-                            try {
-                                const p = await apiRequest(`/api/products/${pid}`, {}, false);
-                                return [pid, p];
-                            } catch {
-                                return [pid, null];
-                            }
-                        })
-                    );
-                    setProductMap(Object.fromEntries(results));
-                }
-
-                await fetchRefunds();
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
+            if (uniqueIds.length > 0) {
+                const results = await Promise.all(
+                    uniqueIds.map(async (pid) => {
+                        try {
+                            const p = await apiRequest(`/api/products/${pid}`, {}, false);
+                            return [pid, p];
+                        } catch {
+                            return [pid, null];
+                        }
+                    })
+                );
+                setProductMap(Object.fromEntries(results));
             }
+
+            await fetchRefunds();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
-        fetchAll();
+    }
+
+    useEffect(() => {
+        fetchOrders();
     }, []);
 
     if (loading) {
@@ -373,6 +407,7 @@ export default function MyOrders() {
                                     productMap={productMap}
                                     existingRefunds={refunds}
                                     onRefundSubmitted={fetchRefunds}
+                                    onOrderChanged={fetchOrders}
                                 />
                             ))}
                         </Section>
@@ -392,6 +427,7 @@ export default function MyOrders() {
                                     productMap={productMap}
                                     existingRefunds={refunds}
                                     onRefundSubmitted={fetchRefunds}
+                                    onOrderChanged={fetchOrders}
                                 />
                             ))}
                         </Section>
