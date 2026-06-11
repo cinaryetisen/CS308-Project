@@ -87,10 +87,10 @@ func Checkout(c *gin.Context) {
 	// 4. Process individual items & Deduct Stock
 	for _, item := range input.CartItems {
 
-		// Extract secure price
+		// Extract secure price (discount applied — the customer pays the advertised price)
 		verifiedPrice := 0.00
 		if p, found := productMap[item.ProductID]; found {
-			verifiedPrice = p.Price
+			verifiedPrice = p.EffectivePrice()
 		}
 
 		orderItem := models.OrderItem{
@@ -181,7 +181,7 @@ func Checkout(c *gin.Context) {
 		verifiedPrice := 0.00
 		if p, found := productMap[item.ProductID]; found {
 			name = p.Name
-			verifiedPrice = p.Price
+			verifiedPrice = p.EffectivePrice()
 		}
 		invoiceItems = append(invoiceItems, gin.H{
 			"product_id": item.ProductID,
