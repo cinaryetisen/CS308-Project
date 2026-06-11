@@ -77,7 +77,8 @@ func GetCart(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"_id": bson.M{"$in": objectIDs}}
+	// Soft-deleted products silently drop out of the cart view.
+	filter := bson.M{"_id": bson.M{"$in": objectIDs}, "deleted_at": nil}
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	cursor, err := collection.Find(ctx, filter)
