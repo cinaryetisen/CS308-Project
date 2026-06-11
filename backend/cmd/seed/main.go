@@ -34,8 +34,15 @@ func main() {
 	// ==========================================
 	log.Println("Migrating and Seeding PostgreSQL Users...")
 
-	// Ensure the users table exists before inserting
-	config.DB.AutoMigrate(&models.User{})
+	// Ensure all PostgreSQL tables exist before inserting/wiping
+	config.DB.AutoMigrate(
+		&models.User{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.CartItem{},
+		&models.WishlistItem{},
+		&models.Refund{},
+	)
 
 	// Generate a secure password hash using YOUR security package
 	defaultPassword, err := security.HashPassword("password123")
@@ -80,6 +87,16 @@ func main() {
 	}
 	log.Println("Successfully seeded Manager and Customer accounts!")
 
+	// Wipe transactional PG data. Every seed run regenerates the Mongo product
+	// ObjectIDs, so any surviving orders/carts/wishlists/refunds would point at
+	// products that no longer exist and corrupt the demo.
+	log.Println("Clearing stale PostgreSQL orders, carts, wishlists, and refunds...")
+	for _, table := range []string{"refunds", "order_items", "orders", "cart_items", "wishlist_items"} {
+		if err := config.DB.Exec("DELETE FROM " + table).Error; err != nil {
+			log.Fatalf("Failed to clear %s: %v", table, err)
+		}
+	}
+
 	// ==========================================
 	// PART B: SEED MONGODB (PRODUCTS)
 	// ==========================================
@@ -99,11 +116,18 @@ func main() {
 		log.Fatalf("Failed to clear existing products: %v", err)
 	}
 
+	// Named IDs for the products the demo customer has "already purchased"
+	// (final demo script products E, F, G, H) — needed again in Part D below.
+	productEID := primitive.NewObjectID() // Broadsword of the Bear  -> delivered >30 days ago
+	productFID := primitive.NewObjectID() // Ranger's Longbow        -> delivered <30 days ago
+	productGID := primitive.NewObjectID() // Potion of Invisibility  -> recent, processing
+	productHID := primitive.NewObjectID() // Lockpick Set            -> recent, in-transit
+
 	// Create the Mock Data with COST included (Cost = Price * 0.6)
 	mockProducts := []interface{}{
 		// --- SPRINT 1 ORIGINAL WEAPONS & SPELLS ---
 		models.Product{
-			ID:           primitive.NewObjectID(),
+			ID:           productEID,
 			Name:         "Broadsword of the Bear",
 			Model:        "SWD-001",
 			SerialNumber: "SN-99812",
@@ -164,7 +188,7 @@ func main() {
 		},
 		// --- WEAPONS ---
 		models.Product{
-			ID:           primitive.NewObjectID(),
+			ID:           productFID,
 			Name:         "Ranger's Longbow",
 			Model:        "BOW-088",
 			SerialNumber: "SN-77210",
@@ -326,7 +350,7 @@ func main() {
 		},
 		// --- SPELLS & MAGIC ---
 		models.Product{
-			ID:           primitive.NewObjectID(),
+			ID:           productGID,
 			Name:         "Potion of Invisibility",
 			Model:        "PTN-007",
 			SerialNumber: "SN-11009",
@@ -467,7 +491,7 @@ func main() {
 			UpdatedAt:    time.Now(),
 		},
 		models.Product{
-			ID:           primitive.NewObjectID(),
+			ID:           productHID,
 			Name:         "Lockpick Set",
 			Model:        "MIS-009",
 			SerialNumber: "SN-99001",
@@ -537,4 +561,59 @@ func main() {
 		log.Fatalf("Failed to insert mock categories: %v", err)
 	}
 	log.Printf("Successfully seeded %d categories into MongoDB!\n", len(catResult.InsertedIDs))
+
+	// ==========================================
+	// PART D: SEED DEMO ORDERS (final demo script)
+	// The customer must arrive at the demo with this purchase history:
+	//   E: delivered, >30 days old  (refund window CLOSED — step 2.2)
+	//   F: delivered, <30 days old  (refund window OPEN  — steps 2.1 / 6.1)
+	//   G: recent, processing       (cancellable          — step 1.7)
+	//   H: recent, in-transit
+	// ==========================================
+	log.Println("Seeding demo orders for the test customer...")
+
+	var customer models.User
+	if err := config.DB.Where("email = ?", "customer@medievalstore.com").First(&customer).Error; err != nil {
+		log.Fatalf("Could not load seeded customer for demo orders: %v", err)
+	}
+
+	demoOrders := []struct {
+		productID primitive.ObjectID
+		price     float64
+		status    string
+		completed bool
+		daysAgo   int
+	}{
+		{productEID, 250.00, "delivered", true, 45}, // E: Broadsword of the Bear
+		{productFID, 120.00, "delivered", true, 10}, // F: Ranger's Longbow
+		{productGID, 75.00, "processing", false, 2}, // G: Potion of Invisibility
+		{productHID, 35.00, "in-transit", false, 1}, // H: Lockpick Set
+	}
+
+	for _, o := range demoOrders {
+		// GORM honors an explicitly set CreatedAt, which is what backdates order E
+		// past the 30-day refund window.
+		order := models.Order{
+			CustomerID:      customer.ID,
+			TotalPrice:      o.price,
+			DeliveryAddress: "789 Peasant Way, Lower Ward",
+			Status:          o.status,
+			Completed:       o.completed,
+			CreatedAt:       time.Now().AddDate(0, 0, -o.daysAgo),
+		}
+		if err := config.DB.Create(&order).Error; err != nil {
+			log.Fatalf("Failed to seed demo order for product %s: %v", o.productID.Hex(), err)
+		}
+
+		item := models.OrderItem{
+			OrderID:   order.ID,
+			ProductID: o.productID.Hex(),
+			Quantity:  1,
+			Price:     o.price,
+		}
+		if err := config.DB.Create(&item).Error; err != nil {
+			log.Fatalf("Failed to seed demo order item for product %s: %v", o.productID.Hex(), err)
+		}
+	}
+	log.Printf("Successfully seeded %d demo orders for %s!\n", len(demoOrders), customer.Email)
 }
