@@ -226,15 +226,22 @@ func UpdateStock(c *gin.Context) {
 		return
 	}
 
-	// Accept a positive or negative delta (e.g., {"delta": 5} or {"delta": -2})
+	// Accept a positive or negative delta (e.g., {"delta": 5} or {"delta": -2}).
+	// Pointer binding so a literal 0 is "present but invalid" (clear 400), not
+	// confused with "field missing" by Go's zero-value handling.
 	var input struct {
-		Delta int `json:"delta" binding:"required"`
+		Delta *int `json:"delta" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errs.AbortWithDetail(c, errs.InvalidJSON, "please provide a valid stock delta")
 		return
 	}
+	if *input.Delta == 0 {
+		errs.AbortWithDetail(c, errs.InvalidJSON, "delta must be non-zero")
+		return
+	}
+	delta := *input.Delta
 
 	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -243,12 +250,12 @@ func UpdateStock(c *gin.Context) {
 	filter := bson.M{"_id": objectID, "deleted_at": bson.M{"$exists": false}}
 
 	// If decreasing stock, guarantee the database has enough stock to fulfill the request
-	if input.Delta < 0 {
-		filter["quantity"] = bson.M{"$gte": -input.Delta}
+	if delta < 0 {
+		filter["quantity"] = bson.M{"$gte": -delta}
 	}
 
 	// Atomically increment or decrement the stock, and update the timestamp
-	update := bson.M{"$inc": bson.M{"quantity": input.Delta}, "$set": bson.M{"updated_at": time.Now()}}
+	update := bson.M{"$inc": bson.M{"quantity": delta}, "$set": bson.M{"updated_at": time.Now()}}
 	result, err := collection.UpdateOne(ctx, filter, update)
 
 	if err != nil {
@@ -257,6 +264,13 @@ func UpdateStock(c *gin.Context) {
 	}
 
 	if result.MatchedCount == 0 {
+		// Distinguish "no such product" from "not enough stock" so the PM panel
+		// can show an accurate error.
+		count, cErr := collection.CountDocuments(ctx, bson.M{"_id": objectID, "deleted_at": bson.M{"$exists": false}})
+		if cErr == nil && count == 0 {
+			errs.Abort(c, errs.ProductNotFound)
+			return
+		}
 		errs.Abort(c, errs.ProductOutOfStock)
 		return
 	}

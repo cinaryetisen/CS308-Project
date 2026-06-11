@@ -440,3 +440,61 @@ func TestUpdateProduct_KnownCategoryAccepted(t *testing.T) {
 	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
 	assert.Equal(t, "Spells", saved.Category)
 }
+
+// ==========================================
+// UpdateStock error semantics
+// ==========================================
+
+func TestUpdateStock_NonexistentProductReturns404(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": -1})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+primitive.NewObjectID().Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code, "a missing product is 404, not 'out of stock'")
+	assert.Contains(t, w.Body.String(), "PRODUCT_NOT_FOUND")
+}
+
+func TestUpdateStock_InsufficientStockStillConflict(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Thin Stock", Quantity: 1})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": -5})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Contains(t, w.Body.String(), "PRODUCT_OUT_OF_STOCK")
+}
+
+func TestUpdateStock_ZeroDeltaRejected(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "No-op Target", Quantity: 3})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"delta": 0})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex()+"/stock", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "non-zero")
+}
