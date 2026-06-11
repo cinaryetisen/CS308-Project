@@ -176,9 +176,17 @@ export default function Signup() {
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={handleChange}
+                                minLength={6}
                                 className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-4 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                                 required
                             />
+                            <p className={`text-[11px] mt-0.5 ${
+                                formData.password.length > 0 && formData.password.length < 6
+                                    ? "text-[#ffb4a8]"
+                                    : "text-[var(--muted)]/60"
+                            }`}>
+                                Must be at least 6 characters.
+                            </p>
                         </div>
 
                         {/* Submit */}
