@@ -124,9 +124,15 @@ export default function UserProfile() {
                     <h2 className="text-base font-serif text-[var(--text)] pb-3 mb-4 border-b border-[var(--border)]">
                         Account
                     </h2>
-                    <div className="flex flex-col gap-1">
-                        <span className={labelClass}>Email</span>
-                        <p className="text-sm text-[var(--text)]">{user?.email || "—"}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="flex flex-col gap-1">
+                            <span className={labelClass}>Customer ID</span>
+                            <p className="text-sm text-[var(--text)] font-mono">#{user?.ID ?? user?.id ?? "—"}</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className={labelClass}>Email</span>
+                            <p className="text-sm text-[var(--text)]">{user?.email || "—"}</p>
+                        </div>
                     </div>
                     <p className="text-xs text-[var(--muted)]/60 mt-3">Email address cannot be changed.</p>
                 </div>
