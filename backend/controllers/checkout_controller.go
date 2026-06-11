@@ -25,9 +25,12 @@ func Checkout(c *gin.Context) {
 	}
 
 	// 2. Bind the incoming checkout data from React
+	// total_price is still accepted for backward compatibility but IGNORED —
+	// the authoritative total is computed server-side from verified prices so a
+	// tampered request can't put a fake total on the stored order/invoice.
 	var input struct {
 		ShippingAddress string            `json:"shipping_address" binding:"required"`
-		TotalPrice      float64           `json:"total_price" binding:"required"`
+		TotalPrice      float64           `json:"total_price"`
 		CartItems       []models.CartItem `json:"cart_items" binding:"required"`
 	}
 
@@ -64,10 +67,17 @@ func Checkout(c *gin.Context) {
 	}
 	// ==========================================
 
-	// 3. Create the new order in the database
+	// 3. Create the new order in the database with the SERVER-computed total
+	serverTotal := 0.0
+	for _, item := range input.CartItems {
+		if p, found := productMap[item.ProductID]; found {
+			serverTotal += p.EffectivePrice() * float64(item.Quantity)
+		}
+	}
+
 	newOrder := models.Order{
 		CustomerID:      userID.(uint),
-		TotalPrice:      input.TotalPrice,
+		TotalPrice:      serverTotal,
 		DeliveryAddress: input.ShippingAddress,
 		Status:          "processing",
 		Completed:       false,
