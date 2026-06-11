@@ -94,6 +94,29 @@ func Checkout(c *gin.Context) {
 
 	var savedOrderItems []models.OrderItem
 
+	// Track every Mongo stock decrement applied so far. A PG rollback cannot
+	// undo cross-database writes, so if a later item fails we must manually
+	// restore the stock already deducted for earlier items.
+	type appliedDecrement struct {
+		id  primitive.ObjectID
+		qty int
+	}
+	var applied []appliedDecrement
+	productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+
+	compensateStock := func() {
+		for _, a := range applied {
+			if _, err := productsCollection.UpdateOne(
+				context.Background(),
+				bson.M{"_id": a.id},
+				bson.M{"$inc": bson.M{"quantity": a.qty}},
+			); err != nil {
+				log.Printf("CRITICAL: failed to restore %d stock for product %s after checkout rollback: %v",
+					a.qty, a.id.Hex(), err)
+			}
+		}
+	}
+
 	// 4. Process individual items & Deduct Stock
 	for _, item := range input.CartItems {
 
@@ -112,6 +135,7 @@ func Checkout(c *gin.Context) {
 
 		if err := tx.Create(&orderItem).Error; err != nil {
 			tx.Rollback()
+			compensateStock()
 			errs.Abort(c, errs.InternalError)
 			return
 		}
@@ -123,11 +147,10 @@ func Checkout(c *gin.Context) {
 		objID, err := primitive.ObjectIDFromHex(item.ProductID)
 		if err != nil {
 			tx.Rollback()
+			compensateStock()
 			errs.Abort(c, errs.ProductInvalidID)
 			return
 		}
-
-		productsCollection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 
 		// Filter: Only match the product IF it has enough stock (>= item.Quantity)
 		// and has not been soft-deleted (stale carts can still reference removed items).
@@ -145,21 +168,28 @@ func Checkout(c *gin.Context) {
 		// If 0 documents were modified, it means another user bought the last item right before this!
 		if err != nil || result.ModifiedCount == 0 {
 			tx.Rollback() // Cancel the PostgreSQL order completely
+			compensateStock()
 			errs.Abort(c, errs.ProductOutOfStock)
 			return
 		}
+		applied = append(applied, appliedDecrement{id: objID, qty: item.Quantity})
 		// ==========================================
 	}
 
 	// 5. Clear the user's shopping cart
 	if err := tx.Where("user_id = ?", userID).Delete(&models.CartItem{}).Error; err != nil {
 		tx.Rollback()
+		compensateStock()
 		errs.Abort(c, errs.InternalError)
 		return
 	}
 
 	// 6. Permanently commit the PostgreSQL changes!
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		compensateStock()
+		errs.Abort(c, errs.InternalError)
+		return
+	}
 	newOrder.Items = savedOrderItems
 
 	// 7. Fetch the User's details and trigger the background PDF logic
