@@ -73,7 +73,7 @@ func GetCart(c *gin.Context) {
 	}
 
 	if len(objectIDs) == 0 {
-		c.JSON(200, []models.Product{})
+		c.JSON(200, []models.CartItemResponse{})
 		return
 	}
 
