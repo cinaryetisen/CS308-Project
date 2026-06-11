@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -153,36 +154,25 @@ func ResolveRefund(c *gin.Context) {
 	refund.ResolverID = &mid
 
 	if input.Action == "approved" {
-		// Wrap PostgreSQL updates + MongoDB stock restore in a single transaction so
-		// a failed MongoDB call rolls back the status change too.
-		tx := config.DB.Begin()
-
+		// Validate everything BEFORE writing, then commit the PG state, and only
+		// restock Mongo afterwards. If the restock were done first (the old
+		// ordering), a failed PG save would leave stock incremented while the
+		// refund stayed pending — and a retried approval would restock twice.
+		// With this ordering a post-commit restock failure is logged for manual
+		// correction, and re-approval is impossible (status is no longer pending).
 		var orderItem models.OrderItem
-		if err := tx.First(&orderItem, refund.OrderItemID).Error; err != nil {
-			tx.Rollback()
+		if err := config.DB.First(&orderItem, refund.OrderItemID).Error; err != nil {
 			errs.Abort(c, errs.InternalError)
 			return
 		}
 
 		objID, err := primitive.ObjectIDFromHex(orderItem.ProductID)
 		if err != nil {
-			tx.Rollback()
 			errs.Abort(c, errs.ProductInvalidID)
 			return
 		}
 
-		// Restore stock atomically (mirrors checkout_controller.go:122).
-		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
-		_, err = collection.UpdateOne(
-			context.Background(),
-			bson.M{"_id": objID},
-			bson.M{"$inc": bson.M{"quantity": orderItem.Quantity}},
-		)
-		if err != nil {
-			tx.Rollback()
-			errs.Abort(c, errs.InternalError)
-			return
-		}
+		tx := config.DB.Begin()
 
 		if err := tx.Save(&refund).Error; err != nil {
 			tx.Rollback()
@@ -217,7 +207,27 @@ func ResolveRefund(c *gin.Context) {
 			}
 		}
 
-		tx.Commit()
+		if err := tx.Commit().Error; err != nil {
+			errs.Abort(c, errs.InternalError)
+			return
+		}
+
+		// Restock AFTER the PG commit. A failure here is logged for manual
+		// correction; it can never double-apply because the refund is no longer
+		// pending, so re-approval is rejected upstream.
+		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+		result, err := collection.UpdateOne(
+			context.Background(),
+			bson.M{"_id": objID},
+			bson.M{"$inc": bson.M{"quantity": orderItem.Quantity}},
+		)
+		if err != nil {
+			log.Printf("CRITICAL: refund %d approved but restocking product %s (+%d) FAILED: %v",
+				refund.ID, orderItem.ProductID, orderItem.Quantity, err)
+		} else if result.MatchedCount == 0 {
+			log.Printf("WARNING: refund %d approved but product %s no longer exists in MongoDB — stock not restored",
+				refund.ID, orderItem.ProductID)
+		}
 
 		// Send approval email to the customer asynchronously.
 		var customer models.User

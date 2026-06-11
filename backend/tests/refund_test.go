@@ -343,3 +343,34 @@ func TestResolveRefund_RejectsCustomerRole(t *testing.T) {
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
+
+// ==========================================
+// Restock ordering (B14)
+// ==========================================
+
+func TestResolveRefund_ApprovalSurvivesMissingProduct(t *testing.T) {
+	// The PG approval commits first; a product that has vanished from MongoDB
+	// must not block the refund (it is logged for manual stock correction).
+	setupTestDB()
+	ensureMongo()
+	defer clearTestDB()
+
+	config.DB.Create(&models.User{ID: 1, Name: "Arthur", Email: "arthur@camelot.com"})
+
+	// Order item references a product that does NOT exist in Mongo.
+	ghostProduct := primitive.NewObjectID()
+	order, items := seedRefundableOrder(t, 5, [3]interface{}{ghostProduct.Hex(), 1, 50.0})
+
+	router := setupRefundRouter()
+	requestRefund(router, order.ID, items[0].ID, getTestToken(1, "customer"))
+	var refund models.Refund
+	config.DB.First(&refund)
+
+	w := resolveRefund(router, refund.ID, "approved")
+	assert.Equal(t, http.StatusOK, w.Code, "approval must succeed even when restock has no target")
+
+	var saved models.Refund
+	config.DB.First(&saved, refund.ID)
+	assert.Equal(t, "approved", saved.Status)
+	assert.NotNil(t, saved.ResolvedAt)
+}
