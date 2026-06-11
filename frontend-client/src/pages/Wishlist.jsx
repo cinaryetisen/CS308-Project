@@ -180,6 +180,28 @@ export default function Wishlist() {
                     </span>
                 </div>
 
+                {/* On-sale notification banner — the on-screen companion to the
+                    discount email sent when a wishlisted item is marked down. */}
+                {(() => {
+                    const onSale = wishlist.filter((i) => i.discount > 0);
+                    if (onSale.length === 0) return null;
+                    return (
+                        <div className="mb-8 flex items-start gap-3 rounded-lg border border-[var(--btn-from)]/40 bg-[var(--btn-from)]/10 px-5 py-4">
+                            <span className="text-2xl leading-none">🏷️</span>
+                            <div>
+                                <p className="text-[var(--text)] font-semibold">
+                                    {onSale.length === 1
+                                        ? "An item on your wishlist is on sale!"
+                                        : `${onSale.length} items on your wishlist are on sale!`}
+                                </p>
+                                <p className="text-sm text-[var(--muted)] mt-0.5">
+                                    {onSale.map((i) => i.name).join(", ")} — grab {onSale.length === 1 ? "it" : "them"} before the discount ends.
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
                     {wishlist.map((item) => {
