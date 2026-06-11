@@ -1,13 +1,18 @@
 package tests
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"medieval-store/security"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
+
+	"medieval-store/security"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/stretchr/testify/assert"
 )
 
 func setupTestRouter() *gin.Engine {
@@ -128,16 +133,24 @@ func TestAuthMiddleware_SetsUserContext(t *testing.T) {
 }
 
 func TestAuthMiddleware_TamperedToken(t *testing.T) {
-	// Flipping a single character in the signature must invalidate the token.
+	// Tampering with the payload must invalidate the token.
 	os.Setenv("JWT_SECRET", "test_secret_key")
 	router := setupTestRouter()
 
 	token, _ := security.GenerateToken(1, "customer")
-	tampered := token[:len(token)-1] + "X"
-	if tampered == token {
-		// Last char already 'X' — flip it differently
-		tampered = token[:len(token)-1] + "Y"
+	// Mutate a character in the PAYLOAD segment (between the two dots) rather than
+	// the last signature char — flipping the final base64 char is unreliable
+	// because trailing bits can decode to the same signature bytes.
+	parts := strings.Split(token, ".")
+	payload := parts[1]
+	flipped := payload[:len(payload)-1]
+	if payload[len(payload)-1] == 'A' {
+		flipped += "B"
+	} else {
+		flipped += "A"
 	}
+	parts[1] = flipped
+	tampered := strings.Join(parts, ".")
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/protected", nil)
@@ -204,6 +217,73 @@ func TestAuthorize_RejectsMissingAuth(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/restricted", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// ==========================================
+// DEFENSIVE CLAIM PARSING (B19)
+// A validly-signed token with missing/wrong-typed claims must be rejected
+// cleanly (401), never panic the handler.
+// ==========================================
+
+func signCustomClaims(claims jwt.MapClaims) string {
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, _ := token.SignedString(secret)
+	return s
+}
+
+func TestAuthMiddleware_MissingRoleClaim(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test_secret_key")
+	router := setupTestRouter()
+
+	// Signed correctly but has no "role" claim.
+	token := signCustomClaims(jwt.MapClaims{
+		"user_id": float64(1),
+		"exp":     time.Now().Add(time.Hour).Unix(),
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuthMiddleware_MissingUserIDClaim(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test_secret_key")
+	router := setupTestRouter()
+
+	token := signCustomClaims(jwt.MapClaims{
+		"role": "customer",
+		"exp":  time.Now().Add(time.Hour).Unix(),
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuthMiddleware_WrongTypedRoleClaim(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test_secret_key")
+	router := setupTestRouter()
+
+	// role is a number, not a string — must not panic.
+	token := signCustomClaims(jwt.MapClaims{
+		"user_id": float64(1),
+		"role":    42,
+		"exp":     time.Now().Add(time.Hour).Unix(),
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)

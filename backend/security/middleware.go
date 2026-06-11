@@ -2,27 +2,26 @@ package security
 
 import (
 	"fmt"
+	"medieval-store/errs"
+	"net/http"
 	"os"
 	"strings"
-
-	"medieval-store/errs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Function to intercept requests to check for a valid JWT
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			errs.Abort(c, errs.AuthMissingHeader)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			errs.Abort(c, errs.AuthInvalidHeader)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
 			return
 		}
 
@@ -38,18 +37,30 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			errs.Abort(c, errs.AuthInvalidToken)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		//Extract the data and attach it to Gin Context
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", uint(claims["user_id"].(float64)))
-			c.Set("role", claims["role"].(string))
-		} else {
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
 			errs.Abort(c, errs.AuthClaimsParseFail)
 			return
 		}
+
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			errs.Abort(c, errs.AuthClaimsParseFail)
+			return
+		}
+
+		role, ok := claims["role"].(string)
+		if !ok {
+			errs.Abort(c, errs.AuthClaimsParseFail)
+			return
+		}
+
+		c.Set("user_id", uint(userIDFloat))
+		c.Set("role", role)
 
 		c.Next()
 	}
