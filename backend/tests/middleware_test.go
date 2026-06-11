@@ -195,7 +195,7 @@ func TestAuthorize_RejectsWrongRole(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
-	assert.Contains(t, w.Body.String(), "permission")
+	assert.Contains(t, w.Body.String(), "USER_FORBIDDEN")
 }
 
 func TestAuthorize_RejectsMissingAuth(t *testing.T) {
