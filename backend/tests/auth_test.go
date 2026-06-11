@@ -232,3 +232,57 @@ func TestLogin_InvalidEmailFormat(t *testing.T) {
 	// errs.AuthInvalidEmail maps to 400 — see backend/errs/registry.go.
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+// ==========================================
+// ROLE INJECTION GUARD (B09)
+// ==========================================
+
+func TestSignup_IgnoresInjectedRole(t *testing.T) {
+	// Public signup must ALWAYS create a customer. A client-supplied "role"
+	// field was a privilege-escalation hole (self-registered sales managers).
+	setupTestDB()
+	defer clearTestDB()
+
+	router := setupAuthRouter()
+	signupData := map[string]string{
+		"name":     "Sneaky Pete",
+		"email":    "sneaky@evil.com",
+		"password": "Password123!",
+		"role":     "sales_manager", // must be ignored
+	}
+	jsonValue, _ := json.Marshal(signupData)
+
+	req, _ := http.NewRequest("POST", "/api/signup", bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var user models.User
+	config.DB.Where("email = ?", "sneaky@evil.com").First(&user)
+	assert.Equal(t, "customer", user.Role, "injected role must be discarded")
+}
+
+func TestSignup_ProductManagerRoleAlsoIgnored(t *testing.T) {
+	setupTestDB()
+	defer clearTestDB()
+
+	router := setupAuthRouter()
+	signupData := map[string]string{
+		"name":     "Wannabe PM",
+		"email":    "wannabe@evil.com",
+		"password": "Password123!",
+		"role":     "product_manager",
+	}
+	jsonValue, _ := json.Marshal(signupData)
+
+	req, _ := http.NewRequest("POST", "/api/signup", bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var user models.User
+	config.DB.Where("email = ?", "wannabe@evil.com").First(&user)
+	assert.Equal(t, "customer", user.Role)
+}
