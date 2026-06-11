@@ -21,13 +21,24 @@ type DailyStat struct {
 	Date    string  `json:"date"`
 	Revenue float64 `json:"revenue"`
 	Profit  float64 `json:"profit"`
+	Orders  int     `json:"orders"`
+}
+
+type CategoryStat struct {
+	Category string  `json:"category"`
+	Revenue  float64 `json:"revenue"`
+	Profit   float64 `json:"profit"`
+	Units    int     `json:"units"`
 }
 
 type RevenueResponse struct {
-	TotalRevenue float64     `json:"total_revenue"`
-	TotalCost    float64     `json:"total_cost"`
-	Profit       float64     `json:"profit"`
-	Daily        []DailyStat `json:"daily"`
+	TotalRevenue float64        `json:"total_revenue"`
+	TotalCost    float64        `json:"total_cost"`
+	Profit       float64        `json:"profit"`
+	OrderCount   int            `json:"order_count"`
+	ItemsSold    int            `json:"items_sold"`
+	Daily        []DailyStat    `json:"daily"`
+	ByCategory   []CategoryStat `json:"by_category"`
 }
 
 // GetRevenue calculates cross-database profit metrics for the Sales Manager
@@ -76,8 +87,9 @@ func GetRevenue(c *gin.Context) {
 		objectIDs = append(objectIDs, oid)
 	}
 
-	// 4. Query MongoDB for Product Costs
+	// 4. Query MongoDB for Product Costs and Categories
 	costMap := make(map[string]float64)
+	categoryMap := make(map[string]string)
 	if len(objectIDs) > 0 {
 		collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -87,19 +99,20 @@ func GetRevenue(c *gin.Context) {
 		if err == nil {
 			var products []models.Product
 			if err = cursor.All(ctx, &products); err == nil {
-				// Map the ID back to the cost for fast lookups
+				// Map the ID back to cost + category for fast lookups
 				for _, p := range products {
 					costMap[p.ID.Hex()] = p.Cost
+					categoryMap[p.ID.Hex()] = p.Category
 				}
 			}
 		}
-		// If MongoDB fails, costMap stays empty: revenue is still returned,
-		// profit will show as equal to revenue (cost treated as 0).
 	}
 
 	// 5. Calculate Revenue, Cost, and Profit
 	var response RevenueResponse
+	response.OrderCount = len(orders)
 	dailyAggregator := make(map[string]*DailyStat)
+	categoryAggregator := make(map[string]*CategoryStat)
 
 	for _, order := range orders {
 		dateStr := order.CreatedAt.Format("2006-01-02")
@@ -108,6 +121,7 @@ func GetRevenue(c *gin.Context) {
 		if _, exists := dailyAggregator[dateStr]; !exists {
 			dailyAggregator[dateStr] = &DailyStat{Date: dateStr}
 		}
+		dailyAggregator[dateStr].Orders++
 
 		for _, item := range order.Items {
 			// Revenue is what the customer actually paid at the time (stored in PG)
@@ -122,10 +136,23 @@ func GetRevenue(c *gin.Context) {
 			response.TotalRevenue += revenue
 			response.TotalCost += cost
 			response.Profit += profit
+			response.ItemsSold += item.Quantity
 
 			// Add to daily totals
 			dailyAggregator[dateStr].Revenue += revenue
 			dailyAggregator[dateStr].Profit += profit
+
+			// Add to per-category totals (Uncategorized when the product is gone)
+			category := categoryMap[item.ProductID]
+			if category == "" {
+				category = "Uncategorized"
+			}
+			if _, exists := categoryAggregator[category]; !exists {
+				categoryAggregator[category] = &CategoryStat{Category: category}
+			}
+			categoryAggregator[category].Revenue += revenue
+			categoryAggregator[category].Profit += profit
+			categoryAggregator[category].Units += item.Quantity
 		}
 	}
 
@@ -133,10 +160,16 @@ func GetRevenue(c *gin.Context) {
 	for _, stat := range dailyAggregator {
 		response.Daily = append(response.Daily, *stat)
 	}
-
-	// Sort the daily stats chronologically so the frontend chart looks correct
 	sort.Slice(response.Daily, func(i, j int) bool {
 		return response.Daily[i].Date < response.Daily[j].Date
+	})
+
+	// Format the per-category array, sorted by revenue descending for the pie chart
+	for _, stat := range categoryAggregator {
+		response.ByCategory = append(response.ByCategory, *stat)
+	}
+	sort.Slice(response.ByCategory, func(i, j int) bool {
+		return response.ByCategory[i].Revenue > response.ByCategory[j].Revenue
 	})
 
 	// Return data to frontend
