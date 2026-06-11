@@ -27,7 +27,6 @@ export default function Login() {
             }, false);
 
             if (data.token) localStorage.setItem("token", data.token);
-            if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
 
             const guestCart = JSON.parse(localStorage.getItem("cart") || "[]");
             if (guestCart.length > 0) {
@@ -51,6 +50,8 @@ export default function Login() {
                 setTimeout(() => {
                     if (payload.role === "product_manager") {
                         navigate("/pm/deliveries");
+                    } else if (payload.role === "sales_manager") {
+                        navigate("/sm/pricing");
                     } else {
                         navigate("/");
                     }
