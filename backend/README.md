@@ -10,6 +10,7 @@
 | `DATA_ENC_KEY` | 32-byte AES-256-GCM key for PII at rest, base64-encoded |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM_EMAIL` | Outbound email (Mailtrap in dev) |
 | `IMAGE_BASE_URL` | Base URL for product images (defaults to `http://localhost:8080/images`) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed frontend origins (defaults to `http://localhost:4173`) |
 
 ## PII encryption
 
