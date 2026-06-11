@@ -155,6 +155,59 @@ func TestUpdateProduct_Success(t *testing.T) {
 	assert.Equal(t, 5, saved.Quantity)
 }
 
+func TestUpdateProduct_PartialUpdateKeepsOtherFields(t *testing.T) {
+	// B08: PATCH with a single field must not blank out the omitted ones.
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{
+		ID: productID, Name: "Original Name", Description: "Original description",
+		Category: "Weapons", Distributor: "Forge", Warranty: "1 Year",
+		ImageURL: "http://img/x.png", Tags: []string{"keep", "me"},
+	})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{"name": "Renamed Only"})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var saved models.Product
+	collection.FindOne(context.Background(), bson.M{"_id": productID}).Decode(&saved)
+	assert.Equal(t, "Renamed Only", saved.Name)
+	assert.Equal(t, "Original description", saved.Description, "omitted fields must survive")
+	assert.Equal(t, "Weapons", saved.Category)
+	assert.Equal(t, "Forge", saved.Distributor)
+	assert.Equal(t, "1 Year", saved.Warranty)
+	assert.Equal(t, "http://img/x.png", saved.ImageURL)
+	assert.Equal(t, []string{"keep", "me"}, saved.Tags)
+}
+
+func TestUpdateProduct_EmptyBodyRejected(t *testing.T) {
+	setupTestDB()
+	ensureMongo()
+	defer clearMongoCollection("products")
+
+	productID := primitive.NewObjectID()
+	collection := config.MongoClient.Database(config.MongoDBName).Collection("products")
+	collection.InsertOne(context.Background(), models.Product{ID: productID, Name: "Untouched"})
+
+	router := setupAdminProductRouter()
+	body, _ := json.Marshal(map[string]interface{}{})
+	req, _ := http.NewRequest("PATCH", "/api/admin/products/"+productID.Hex(), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", getTestToken(1, "product_manager"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestUpdateProduct_NotFound(t *testing.T) {
 	setupTestDB()
 	ensureMongo()
