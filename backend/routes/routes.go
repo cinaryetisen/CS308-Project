@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"os"
+	"strings"
+
 	"medieval-store/controllers"
 	"medieval-store/security"
 
@@ -11,14 +14,21 @@ import (
 func SetupRouter() *gin.Engine {
 	router := gin.Default()
 
-	//CORS setup
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // Note: For production, you'll want to lock this down to your exact frontend URL
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
+	// CORS: origins come from CORS_ALLOWED_ORIGINS (comma-separated). Defaults to
+	// the Vite dev server when unset. We do NOT send AllowCredentials — auth rides
+	// the Authorization header, not cookies, and "*" + credentials is spec-invalid
+	// (browsers reject it), so omitting it keeps a wildcard dev origin usable.
+	corsConfig := cors.Config{
+		AllowMethods:  []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:  []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders: []string{"Content-Length"},
+	}
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		corsConfig.AllowOrigins = strings.Split(origins, ",")
+	} else {
+		corsConfig.AllowOrigins = []string{"http://localhost:4173"}
+	}
+	router.Use(cors.New(corsConfig))
 
 	router.Static("/images", "./images")
 
