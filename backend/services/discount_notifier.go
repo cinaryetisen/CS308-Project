@@ -7,6 +7,14 @@ import (
 	"medieval-store/models"
 )
 
+// ShouldNotifyDiscount reports whether a discount update warrants emailing
+// wishlist users. Only a real, CHANGED discount notifies — re-saving the same
+// percentage (e.g. a sales manager correcting a typo elsewhere on the form)
+// or removing the discount entirely stays silent.
+func ShouldNotifyDiscount(oldDiscount, newDiscount float64) bool {
+	return newDiscount > 0 && newDiscount != oldDiscount
+}
+
 // FindWishlistUsersForProduct returns every user who has the product in their wishlist
 func FindWishlistUsersForProduct(productID string) ([]models.User, error) {
 	var users []models.User

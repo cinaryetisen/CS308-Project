@@ -246,7 +246,8 @@ func SetProductDiscount(c *gin.Context) {
 		return
 	}
 
-	if *input.Discount > 0 {
+	// `product` was fetched before the update, so product.Discount is the OLD value.
+	if services.ShouldNotifyDiscount(product.Discount, *input.Discount) {
 		go services.NotifyWishlistOfDiscount(product, *input.Discount)
 	}
 
