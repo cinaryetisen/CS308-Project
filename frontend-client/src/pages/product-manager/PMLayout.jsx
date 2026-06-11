@@ -52,9 +52,9 @@ export default function PMLayout() {
                     </p>
                     <button
                         className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                        onClick={() => navigate("/")}
+                        onClick={() => { localStorage.removeItem("token"); navigate("/login"); }}
                     >
-                        Back to store
+                        Go to login
                     </button>
                 </div>
             </div>
@@ -94,9 +94,9 @@ export default function PMLayout() {
                 <div className="px-3 py-4 border-t border-gray-100">
                     <button
                         className="w-full text-sm font-medium text-gray-500 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors text-left"
-                        onClick={() => navigate("/")}
+                        onClick={() => { localStorage.removeItem("token"); navigate("/login"); }}
                     >
-                        ← Back to store
+                        ← Log out
                     </button>
                 </div>
             </aside>
